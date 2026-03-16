@@ -1431,4 +1431,24 @@ var migrations = [...]func(tx *sql.Tx) error{
 		_, err = tx.Exec(`ALTER TABLE feeds ADD COLUMN ignore_entry_updates bool default 'f'`)
 		return err
 	},
+	func(tx *sql.Tx) (err error) {
+		sql := `
+			CREATE TABLE tts_audio_cache (
+				id bigserial primary key,
+				entry_id bigint not null references entries(id) on delete cascade,
+				user_id bigint not null references users(id) on delete cascade,
+				file_path text not null,
+				expires_at timestamp with time zone not null,
+				created_at timestamp with time zone not null default now(),
+				unique(entry_id, user_id)
+			);
+
+			CREATE INDEX tts_audio_cache_expires_at_idx ON tts_audio_cache(expires_at);
+			CREATE INDEX tts_audio_cache_user_id_idx ON tts_audio_cache(user_id);
+			CREATE INDEX tts_audio_cache_entry_id_idx ON tts_audio_cache(entry_id);
+		`
+
+		_, err = tx.Exec(sql)
+		return err
+	},
 }
