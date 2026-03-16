@@ -1008,14 +1008,14 @@ func NewClient(endpointURL, apiKey, voice string) *Client {
 	}
 }
 
-// AudioResult contains TTS service response.
-type AudioResult struct {
+// ServiceResult contains TTS service response.
+type ServiceResult struct {
 	AudioURL  string
 	ExpiresAt time.Time
 }
 
 // Generate calls TTS service to generate audio.
-func (c *Client) Generate(text string, language string) (*AudioResult, error) {
+func (c *Client) Generate(text string, language string) (*ServiceResult, error) {
 	// Validate content length
 	if len(text) > maxContentLength {
 		return nil, fmt.Errorf("entry content too large for TTS (%d > %d characters)", len(text), maxContentLength)
@@ -1070,7 +1070,7 @@ func (c *Client) Generate(text string, language string) (*AudioResult, error) {
 		return nil, fmt.Errorf("failed to parse expires_at: %w", err)
 	}
 
-	return &AudioResult{
+	return &ServiceResult{
 		AudioURL:  ttsResp.AudioURL,
 		ExpiresAt: expiresAt,
 	}, nil
