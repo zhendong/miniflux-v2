@@ -9,9 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"miniflux.app/v2/internal/config"
 )
 
 func TestClient_Generate_Success(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	// Mock TTS server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
@@ -48,6 +52,8 @@ func TestClient_Generate_Success(t *testing.T) {
 }
 
 func TestClient_Generate_InvalidJSON(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("invalid json"))
 	}))
@@ -65,6 +71,8 @@ func TestClient_Generate_InvalidJSON(t *testing.T) {
 }
 
 func TestClient_Generate_HTTPError(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	tests := []struct {
 		statusCode   int
 		expectedErr  string
@@ -95,6 +103,8 @@ func TestClient_Generate_HTTPError(t *testing.T) {
 }
 
 func TestClient_DownloadAudio_Success(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	audioData := []byte("fake mp3 data")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,6 +126,8 @@ func TestClient_DownloadAudio_Success(t *testing.T) {
 }
 
 func TestClient_DownloadAudio_FileTooLarge(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	// Create large data > 50MB
 	largeData := make([]byte, 51*1024*1024)
 
@@ -138,6 +150,8 @@ func TestClient_DownloadAudio_FileTooLarge(t *testing.T) {
 }
 
 func TestClient_DownloadAudio_WrongContentType(t *testing.T) {
+	configureIntegrationAllowPrivateNetworksOption(t)
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("not audio"))
@@ -153,4 +167,22 @@ func TestClient_DownloadAudio_WrongContentType(t *testing.T) {
 	if !strings.Contains(err.Error(), "audio/mpeg") {
 		t.Errorf("Expected content-type error, got: %v", err)
 	}
+}
+
+func configureIntegrationAllowPrivateNetworksOption(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("INTEGRATION_ALLOW_PRIVATE_NETWORKS", "1")
+
+	configParser := config.NewConfigParser()
+	parsedOptions, err := configParser.ParseEnvironmentVariables()
+	if err != nil {
+		t.Fatalf("Unable to configure test options: %v", err)
+	}
+
+	previousOptions := config.Opts
+	config.Opts = parsedOptions
+	t.Cleanup(func() {
+		config.Opts = previousOptions
+	})
 }
