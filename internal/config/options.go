@@ -604,6 +604,59 @@ func NewConfigOptions() *configOptions {
 				rawValue:          "https://www.youtube-nocookie.com/embed/",
 				valueType:         stringType,
 			},
+			"TTS_ENABLED": {
+				parsedBoolValue: false,
+				rawValue:        "0",
+				valueType:       boolType,
+			},
+			"TTS_ENDPOINT_URL": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_API_KEY": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+				secret:            true,
+			},
+			"TTS_API_KEY_FILE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         secretFileType,
+				targetKey:         "TTS_API_KEY",
+			},
+			"TTS_VOICE": {
+				parsedStringValue: "alloy",
+				rawValue:          "alloy",
+				valueType:         stringType,
+			},
+			"TTS_DEFAULT_LANGUAGE": {
+				parsedStringValue: "en",
+				rawValue:          "en",
+				valueType:         stringType,
+			},
+			"TTS_STORAGE_PATH": {
+				parsedStringValue: "./data/tts_audio",
+				rawValue:          "./data/tts_audio",
+				valueType:         stringType,
+			},
+			"TTS_CACHE_DURATION": {
+				parsedDuration: time.Hour * 24,
+				rawValue:       "24",
+				valueType:      hourType,
+				validator: func(rawValue string) error {
+					return validateGreaterOrEqualThan(rawValue, 1)
+				},
+			},
+			"TTS_RATE_LIMIT_PER_HOUR": {
+				parsedIntValue: 20,
+				rawValue:       "20",
+				valueType:      intType,
+				validator: func(rawValue string) error {
+					return validateGreaterOrEqualThan(rawValue, 1)
+				},
+			},
 		},
 	}
 }
@@ -1002,6 +1055,38 @@ func (c *configOptions) YouTubeEmbedUrlOverride() string {
 
 func (c *configOptions) YouTubeEmbedDomain() string {
 	return c.youTubeEmbedDomain
+}
+
+func (c *configOptions) TTSEnabled() bool {
+	return c.options["TTS_ENABLED"].parsedBoolValue
+}
+
+func (c *configOptions) TTSEndpointURL() string {
+	return c.options["TTS_ENDPOINT_URL"].parsedStringValue
+}
+
+func (c *configOptions) TTSAPIKey() string {
+	return c.options["TTS_API_KEY"].parsedStringValue
+}
+
+func (c *configOptions) TTSVoice() string {
+	return c.options["TTS_VOICE"].parsedStringValue
+}
+
+func (c *configOptions) TTSDefaultLanguage() string {
+	return c.options["TTS_DEFAULT_LANGUAGE"].parsedStringValue
+}
+
+func (c *configOptions) TTSStoragePath() string {
+	return c.options["TTS_STORAGE_PATH"].parsedStringValue
+}
+
+func (c *configOptions) TTSCacheDuration() time.Duration {
+	return c.options["TTS_CACHE_DURATION"].parsedDuration
+}
+
+func (c *configOptions) TTSRateLimitPerHour() int {
+	return c.options["TTS_RATE_LIMIT_PER_HOUR"].parsedIntValue
 }
 
 func (c *configOptions) ConfigMap(redactSecret bool) []*optionPair {
