@@ -12,9 +12,13 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"miniflux.app/v2/internal/config"
+	"miniflux.app/v2/internal/http/client"
 	"miniflux.app/v2/internal/model"
+	"miniflux.app/v2/internal/version"
 )
 
 const (
@@ -36,9 +40,10 @@ func NewClient(endpointURL, apiKey, voice string) *Client {
 		endpointURL: endpointURL,
 		apiKey:      apiKey,
 		voice:       voice,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: client.NewClientWithOptions(client.Options{
+			Timeout:              30 * time.Second,
+			BlockPrivateNetworks: !config.Opts.IntegrationAllowPrivateNetworks(),
+		}),
 	}
 }
 
@@ -76,6 +81,7 @@ func (c *Client) Generate(text string, language string) (*ServiceResult, error) 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Miniflux/"+version.Version)
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
@@ -135,12 +141,9 @@ func (c *Client) DownloadAudio(url string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
 
-	// Create client with longer timeout for downloads
-	client := &http.Client{
-		Timeout: 60 * time.Second,
-	}
+	req.Header.Set("User-Agent", "Miniflux/"+version.Version)
 
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("audio download failed: %w", err)
 	}
@@ -152,7 +155,7 @@ func (c *Client) DownloadAudio(url string) ([]byte, error) {
 
 	// Validate Content-Type
 	contentType := resp.Header.Get("Content-Type")
-	if contentType != "audio/mpeg" && contentType != "audio/mp3" {
+	if !strings.HasPrefix(contentType, "audio/mpeg") && !strings.HasPrefix(contentType, "audio/mp3") {
 		return nil, fmt.Errorf("invalid content type: expected audio/mpeg, got %s", contentType)
 	}
 
