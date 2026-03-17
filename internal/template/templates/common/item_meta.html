@@ -36,6 +36,19 @@
                 data-value="{{ if .entry.Starred }}star{{ else }}unstar{{ end }}"
                 >{{ if .entry.Starred }}{{ icon "unstar" }}{{ else }}{{ icon "star" }}{{ end }}<span class="icon-label">{{ if .entry.Starred }}{{ t "entry.starred.toggle.off" }}{{ else }}{{ t "entry.starred.toggle.on" }}{{ end }}</span></button>
         </li>
+        {{ if .hasTTS }}
+        <li class="item-meta-icons-tts">
+            <button
+                aria-describedby="entry-title-{{ .entry.ID }}"
+                title="{{ t "entry.tts.title" }}"
+                data-tts-button="true"
+                data-entry-id="{{ .entry.ID }}"
+                data-label-loading="{{ t "entry.tts.loading" }}"
+                data-label-ready="{{ t "entry.tts.ready" }}"
+                data-label-error="{{ t "entry.tts.error" }}"
+                >{{ icon "speaker" }}<span class="icon-label">{{ t "entry.tts.label" }}</span></button>
+        </li>
+        {{ end -}}
         {{ if .entry.ShareCode }}
             <li class="item-meta-icons-share">
                 <a href="{{ route "sharedEntry" "shareCode" .entry.ShareCode }}"
