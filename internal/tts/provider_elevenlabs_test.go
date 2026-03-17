@@ -222,3 +222,85 @@ func TestElevenLabs_Generate_HTTPError(t *testing.T) {
 		t.Errorf("Expected error %q, got %q", expectedMsg, err.Error())
 	}
 }
+
+func TestElevenLabs_HandleHTTPError(t *testing.T) {
+	tests := []struct {
+		statusCode int
+		wantMsg    string
+	}{
+		{400, "invalid ElevenLabs request parameters"},
+		{422, "invalid ElevenLabs request parameters"},
+		{401, "ElevenLabs authentication failed"},
+		{429, "ElevenLabs rate limit exceeded"},
+		{500, "ElevenLabs service unavailable"},
+		{502, "ElevenLabs service unavailable"},
+		{503, "ElevenLabs service unavailable"},
+		{404, "ElevenLabs request failed: HTTP 404"},
+	}
+
+	provider := newElevenLabsProvider(&ProviderConfig{})
+
+	for _, tt := range tests {
+		err := provider.handleHTTPError(tt.statusCode)
+		if err == nil {
+			t.Errorf("handleHTTPError(%d) expected error, got nil", tt.statusCode)
+		}
+		if !strings.Contains(err.Error(), tt.wantMsg) {
+			t.Errorf("handleHTTPError(%d) = %q, want substring %q", tt.statusCode, err.Error(), tt.wantMsg)
+		}
+	}
+}
+
+func TestElevenLabs_Generate_ContentTooLarge(t *testing.T) {
+	config := &ProviderConfig{
+		Endpoint:     "http://example.com",
+		APIKey:       "test-api-key",
+		VoiceID:      "voice-123",
+		OutputFormat: "mp3_44100_128",
+		HTTPClient:   &http.Client{},
+	}
+
+	// Create text larger than maxContentLength (50000)
+	largeText := strings.Repeat("a", 50001)
+
+	provider := newElevenLabsProvider(config)
+	_, err := provider.Generate(largeText, "en")
+
+	if err == nil {
+		t.Fatal("Expected error for content too large")
+	}
+
+	if !strings.Contains(err.Error(), "too large") {
+		t.Errorf("Expected 'too large' error, got: %v", err)
+	}
+}
+
+func TestElevenLabs_Generate_AudioSizeLimit(t *testing.T) {
+	// Create mock server returning audio > 50MB
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		// Write 51MB of data
+		largeData := make([]byte, 51<<20)
+		w.Write(largeData)
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:     server.URL,
+		APIKey:       "test-api-key",
+		VoiceID:      "voice-123",
+		OutputFormat: "mp3_44100_128",
+		HTTPClient:   server.Client(),
+	}
+
+	provider := newElevenLabsProvider(config)
+	_, err := provider.Generate("Test", "en")
+
+	if err == nil {
+		t.Fatal("Expected error for audio size limit exceeded")
+	}
+
+	if !strings.Contains(err.Error(), "size limit") {
+		t.Errorf("Expected 'size limit' error, got: %v", err)
+	}
+}
