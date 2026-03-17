@@ -5,6 +5,8 @@ package tts
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -138,5 +140,85 @@ func TestElevenLabs_BuildRequestURL_NonZeroLatency(t *testing.T) {
 
 	if !strings.Contains(url, "optimize_streaming_latency=3") {
 		t.Errorf("Expected optimize_streaming_latency=3 in URL: %s", url)
+	}
+}
+
+func TestElevenLabs_Generate_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request
+		if r.Method != "POST" {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+
+		apiKey := r.Header.Get("xi-api-key")
+		if apiKey != "test-api-key" {
+			t.Errorf("Expected xi-api-key header, got %s", apiKey)
+		}
+
+		// Verify URL contains voice_id
+		if !strings.Contains(r.URL.Path, "voice-123") {
+			t.Errorf("Expected voice_id in URL, got %s", r.URL.Path)
+		}
+
+		// Return mock audio data
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write([]byte("mock elevenlabs audio"))
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:        server.URL,
+		APIKey:          "test-api-key",
+		VoiceID:         "voice-123",
+		Model:           "eleven_multilingual_v2",
+		OutputFormat:    "mp3_44100_128",
+		OptimizeLatency: 0,
+		Stability:       0.5,
+		SimilarityBoost: 0.75,
+		Style:           0.0,
+		SpeakerBoost:    true,
+		HTTPClient:      server.Client(),
+	}
+
+	provider := newElevenLabsProvider(config)
+	result, err := provider.Generate("Hello world", "en")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(result.AudioData) == 0 {
+		t.Error("Expected AudioData to be populated")
+	}
+
+	if string(result.AudioData) != "mock elevenlabs audio" {
+		t.Errorf("Expected 'mock elevenlabs audio', got %q", string(result.AudioData))
+	}
+}
+
+func TestElevenLabs_Generate_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:     server.URL,
+		APIKey:       "invalid-key",
+		VoiceID:      "voice-123",
+		OutputFormat: "mp3_44100_128",
+		HTTPClient:   server.Client(),
+	}
+
+	provider := newElevenLabsProvider(config)
+	_, err := provider.Generate("Test", "en")
+
+	if err == nil {
+		t.Fatal("Expected error for 401 response")
+	}
+
+	expectedMsg := "ElevenLabs authentication failed"
+	if err.Error() != expectedMsg {
+		t.Errorf("Expected error %q, got %q", expectedMsg, err.Error())
 	}
 }
