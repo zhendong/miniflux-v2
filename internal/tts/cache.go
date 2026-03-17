@@ -14,6 +14,9 @@ import (
 	"miniflux.app/v2/internal/model"
 )
 
+// providerFactory is a hook for tests to override provider creation.
+var providerFactory = NewProvider
+
 // Storage interface for cache operations.
 type Storage interface {
 	GetTTSCache(entryID, userID int64) (*model.TTSCache, error)
@@ -50,7 +53,7 @@ func getLock(entryID, userID int64) *sync.Mutex {
 // GetOrGenerateAudio retrieves cached audio or generates new audio.
 func GetOrGenerateAudio(
 	store Storage,
-	client *Client,
+	providerConfig *ProviderConfig,
 	entry *model.Entry,
 	userID int64,
 	cacheDuration time.Duration,
@@ -85,16 +88,34 @@ func GetOrGenerateAudio(
 	// Detect language
 	language := DetectLanguage(entry, defaultLanguage)
 
-	// Call TTS service
-	serviceResult, err := client.Generate(text, language)
+	// Create provider
+	provider, err := providerFactory(providerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TTS provider: %w", err)
+	}
+
+	// Generate audio
+	result, err := provider.Generate(text, language)
 	if err != nil {
 		return nil, fmt.Errorf("TTS generation failed: %w", err)
 	}
 
-	// Download audio file
-	audioData, err := client.DownloadAudio(serviceResult.AudioURL)
-	if err != nil {
-		return nil, fmt.Errorf("audio download failed: %w", err)
+	// Handle both AudioData and AudioURL results
+	var audioData []byte
+
+	if len(result.AudioData) > 0 {
+		// Streaming provider (OpenAI, Aliyun streaming, ElevenLabs)
+		audioData = result.AudioData
+	} else if result.AudioURL != "" {
+		// URL-based provider (Aliyun non-streaming)
+		// Use existing DownloadAudio from client.go
+		ttsClient := NewClient("", "", "")
+		audioData, err = ttsClient.DownloadAudio(result.AudioURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download audio: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("provider returned no audio data or URL")
 	}
 
 	// Save locally

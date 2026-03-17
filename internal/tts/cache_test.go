@@ -5,7 +5,6 @@ package tts
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +32,27 @@ func (m *mockStorage) CreateTTSCache(cache *model.TTSCache) error {
 	return m.createErr
 }
 
+// mockProvider is a test implementation of the Provider interface.
+type mockProvider struct {
+	result *ProviderResult
+	err    error
+}
+
+func (m *mockProvider) Generate(text, language string) (*ProviderResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.result, nil
+}
+
+// newMockProvider creates a mock provider that returns the given result.
+func newMockProvider(config *ProviderConfig, result *ProviderResult, err error) Provider {
+	return &mockProvider{
+		result: result,
+		err:    err,
+	}
+}
+
 func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -58,9 +78,14 @@ func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 		Feed:    &model.Feed{},
 	}
 
-	client := NewClient("", "", "")
+	// Create a minimal provider config (not used since cache hit)
+	providerConfig := &ProviderConfig{
+		ProviderType: "openai",
+		APIKey:       "test-key",
+		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+	}
 
-	result, err := GetOrGenerateAudio(store, client, entry, 456, 24*time.Hour, tmpDir, "en")
+	result, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
 	if err != nil {
 		t.Fatalf("GetOrGenerateAudio failed: %v", err)
 	}
@@ -71,25 +96,20 @@ func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 }
 
 func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
-	configureIntegrationAllowPrivateNetworksOption(t)
 	tmpDir := t.TempDir()
 
-	// Mock TTS server
+	// Mock audio data
 	audioData := []byte("generated audio data")
-	var serverURL string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/tts" {
-			// TTS generation endpoint
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"audio_url": "` + serverURL + `/audio.mp3", "expires_at": "2026-03-17T10:00:00Z"}`))
-		} else {
-			// Audio download endpoint
-			w.Header().Set("Content-Type", "audio/mpeg")
-			w.Write(audioData)
-		}
-	}))
-	defer server.Close()
-	serverURL = server.URL
+
+	// Override provider factory for this test
+	originalFactory := providerFactory
+	defer func() { providerFactory = originalFactory }()
+
+	providerFactory = func(config *ProviderConfig) (Provider, error) {
+		return newMockProvider(config, &ProviderResult{
+			AudioData: audioData,
+		}, nil), nil
+	}
 
 	store := &mockStorage{
 		cacheErr: os.ErrNotExist, // Cache miss
@@ -102,9 +122,14 @@ func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
 		Feed:    &model.Feed{},
 	}
 
-	client := NewClient(server.URL+"/tts", "test-key", "alloy")
+	// Create provider config for testing
+	providerConfig := &ProviderConfig{
+		ProviderType: "openai",
+		APIKey:       "test-key",
+		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+	}
 
-	result, err := GetOrGenerateAudio(store, client, entry, 456, 24*time.Hour, tmpDir, "en")
+	result, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
 	if err != nil {
 		t.Fatalf("GetOrGenerateAudio failed: %v", err)
 	}
@@ -143,9 +168,14 @@ func TestGetOrGenerateAudio_ContentTooLarge(t *testing.T) {
 		Feed:    &model.Feed{},
 	}
 
-	client := NewClient("", "", "")
+	// Create a minimal provider config
+	providerConfig := &ProviderConfig{
+		ProviderType: "openai",
+		APIKey:       "test-key",
+		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+	}
 
-	_, err := GetOrGenerateAudio(store, client, entry, 456, 24*time.Hour, tmpDir, "en")
+	_, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
 	if err == nil {
 		t.Error("Expected error for content too large")
 	}

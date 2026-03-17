@@ -59,12 +59,8 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Initialize TTS client
-	client := tts.NewClient(
-		config.Opts.TTSEndpointURL(),
-		config.Opts.TTSAPIKey(),
-		config.Opts.TTSVoice(),
-	)
+	// Create TTS provider configuration
+	providerConfig := tts.NewProviderConfigFromLoader(config.Opts)
 
 	// Get or generate audio
 	cacheDuration := config.Opts.TTSCacheDuration()
@@ -73,7 +69,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 
 	result, err := tts.GetOrGenerateAudio(
 		h.store,
-		client,
+		providerConfig,
 		entry,
 		userID,
 		cacheDuration,
