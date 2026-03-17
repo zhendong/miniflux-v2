@@ -75,44 +75,6 @@ func NewProvider(config *ProviderConfig) (Provider, error) {
 	case "elevenlabs":
 		return newElevenLabsProvider(config), nil
 	default:
-		return nil, fmt.Errorf("unsupported TTS provider: %s (supported: openai, aliyun, elevenlabs)", config.ProviderType)
+		return nil, fmt.Errorf("unsupported TTS provider: %s", config.ProviderType)
 	}
-}
-
-// Stub implementations - to be replaced in Task 1.2
-
-type openAIProvider struct {
-	config *ProviderConfig
-}
-
-func newOpenAIProvider(config *ProviderConfig) Provider {
-	return &openAIProvider{config: config}
-}
-
-func (p *openAIProvider) Generate(text, language string) (*ProviderResult, error) {
-	return &ProviderResult{}, nil
-}
-
-type aliyunProvider struct {
-	config *ProviderConfig
-}
-
-func newAliyunProvider(config *ProviderConfig) Provider {
-	return &aliyunProvider{config: config}
-}
-
-func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error) {
-	return &ProviderResult{}, nil
-}
-
-type elevenLabsProvider struct {
-	config *ProviderConfig
-}
-
-func newElevenLabsProvider(config *ProviderConfig) Provider {
-	return &elevenLabsProvider{config: config}
-}
-
-func (p *elevenLabsProvider) Generate(text, language string) (*ProviderResult, error) {
-	return &ProviderResult{}, nil
 }
