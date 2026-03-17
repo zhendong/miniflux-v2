@@ -28,3 +28,11 @@ func TestGenerateTTSAudio_Success(t *testing.T) {
 	// - Temporary file storage
 	t.Skip("Requires full integration test setup")
 }
+
+func TestServeTTSAudio_NotFound(t *testing.T) {
+	t.Skip("Requires test database setup")
+}
+
+func TestServeTTSAudio_Success(t *testing.T) {
+	t.Skip("Requires test database setup")
+}
