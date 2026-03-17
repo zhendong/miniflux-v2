@@ -59,3 +59,21 @@ func validateRange(rawValue string, min, max int) error {
 	}
 	return nil
 }
+
+func validateTTSProvider(value string) error {
+	if value == "" {
+		return nil // Optional when TTS_ENABLED is false
+	}
+
+	validProviders := map[string]bool{
+		"openai":     true,
+		"aliyun":     true,
+		"elevenlabs": true,
+	}
+
+	if !validProviders[value] {
+		return fmt.Errorf("invalid TTS provider %q (must be: openai, aliyun, or elevenlabs)", value)
+	}
+
+	return nil
+}

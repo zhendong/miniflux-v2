@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -609,10 +610,11 @@ func NewConfigOptions() *configOptions {
 				rawValue:        "0",
 				valueType:       boolType,
 			},
-			"TTS_ENDPOINT_URL": {
+			"TTS_PROVIDER": {
 				parsedStringValue: "",
 				rawValue:          "",
 				valueType:         stringType,
+				validator:         validateTTSProvider,
 			},
 			"TTS_API_KEY": {
 				parsedStringValue: "",
@@ -625,11 +627,6 @@ func NewConfigOptions() *configOptions {
 				rawValue:          "",
 				valueType:         secretFileType,
 				targetKey:         "TTS_API_KEY",
-			},
-			"TTS_VOICE": {
-				parsedStringValue: "alloy",
-				rawValue:          "alloy",
-				valueType:         stringType,
 			},
 			"TTS_DEFAULT_LANGUAGE": {
 				parsedStringValue: "en",
@@ -656,6 +653,114 @@ func NewConfigOptions() *configOptions {
 				validator: func(rawValue string) error {
 					return validateGreaterOrEqualThan(rawValue, 1)
 				},
+			},
+			// OpenAI-specific configuration
+			"TTS_OPENAI_ENDPOINT": {
+				parsedStringValue: "https://api.openai.com/v1/audio/speech",
+				rawValue:          "https://api.openai.com/v1/audio/speech",
+				valueType:         stringType,
+			},
+			"TTS_OPENAI_MODEL": {
+				parsedStringValue: "gpt-4o-mini-tts",
+				rawValue:          "gpt-4o-mini-tts",
+				valueType:         stringType,
+			},
+			"TTS_OPENAI_VOICE": {
+				parsedStringValue: "alloy",
+				rawValue:          "alloy",
+				valueType:         stringType,
+			},
+			"TTS_OPENAI_SPEED": {
+				parsedStringValue: "1.0",
+				rawValue:          "1.0",
+				valueType:         stringType,
+			},
+			"TTS_OPENAI_RESPONSE_FORMAT": {
+				parsedStringValue: "mp3",
+				rawValue:          "mp3",
+				valueType:         stringType,
+			},
+			"TTS_OPENAI_INSTRUCTIONS": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			// Aliyun-specific configuration
+			"TTS_ALIYUN_ENDPOINT": {
+				parsedStringValue: "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+				rawValue:          "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+				valueType:         stringType,
+			},
+			"TTS_ALIYUN_MODEL": {
+				parsedStringValue: "qwen3-tts-flash",
+				rawValue:          "qwen3-tts-flash",
+				valueType:         stringType,
+			},
+			"TTS_ALIYUN_VOICE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_ALIYUN_LANGUAGE_TYPE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_ALIYUN_STREAM": {
+				parsedBoolValue: true,
+				rawValue:        "true",
+				valueType:       boolType,
+			},
+			// ElevenLabs-specific configuration
+			"TTS_ELEVENLABS_ENDPOINT": {
+				parsedStringValue: "https://api.elevenlabs.io/v1/text-to-speech",
+				rawValue:          "https://api.elevenlabs.io/v1/text-to-speech",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_VOICE_ID": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_MODEL_ID": {
+				parsedStringValue: "eleven_multilingual_v2",
+				rawValue:          "eleven_multilingual_v2",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_LANGUAGE_CODE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_STABILITY": {
+				parsedStringValue: "0.5",
+				rawValue:          "0.5",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_SIMILARITY_BOOST": {
+				parsedStringValue: "0.75",
+				rawValue:          "0.75",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_STYLE": {
+				parsedStringValue: "0",
+				rawValue:          "0",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_USE_SPEAKER_BOOST": {
+				parsedBoolValue: true,
+				rawValue:        "true",
+				valueType:       boolType,
+			},
+			"TTS_ELEVENLABS_OUTPUT_FORMAT": {
+				parsedStringValue: "mp3_44100_128",
+				rawValue:          "mp3_44100_128",
+				valueType:         stringType,
+			},
+			"TTS_ELEVENLABS_OPTIMIZE_LATENCY": {
+				parsedIntValue: 0,
+				rawValue:       "0",
+				valueType:      intType,
 			},
 		},
 	}
@@ -1061,16 +1166,12 @@ func (c *configOptions) TTSEnabled() bool {
 	return c.options["TTS_ENABLED"].parsedBoolValue
 }
 
-func (c *configOptions) TTSEndpointURL() string {
-	return c.options["TTS_ENDPOINT_URL"].parsedStringValue
+func (c *configOptions) TTSProvider() string {
+	return c.options["TTS_PROVIDER"].parsedStringValue
 }
 
 func (c *configOptions) TTSAPIKey() string {
 	return c.options["TTS_API_KEY"].parsedStringValue
-}
-
-func (c *configOptions) TTSVoice() string {
-	return c.options["TTS_VOICE"].parsedStringValue
 }
 
 func (c *configOptions) TTSDefaultLanguage() string {
@@ -1087,6 +1188,132 @@ func (c *configOptions) TTSCacheDuration() time.Duration {
 
 func (c *configOptions) TTSRateLimitPerHour() int {
 	return c.options["TTS_RATE_LIMIT_PER_HOUR"].parsedIntValue
+}
+
+// TTSEndpointURL returns a temporary stub for backward compatibility.
+// This will be removed when the provider system is fully integrated.
+func (c *configOptions) TTSEndpointURL() string {
+	// Return empty - the old client won't work until provider integration
+	return ""
+}
+
+// TTSVoice returns a temporary stub for backward compatibility.
+// This will be removed when the provider system is fully integrated.
+func (c *configOptions) TTSVoice() string {
+	// Return empty - the old client won't work until provider integration
+	return ""
+}
+
+// OpenAI accessor methods
+func (c *configOptions) TTSOpenAIEndpoint() string {
+	return c.options["TTS_OPENAI_ENDPOINT"].parsedStringValue
+}
+
+func (c *configOptions) TTSOpenAIModel() string {
+	return c.options["TTS_OPENAI_MODEL"].parsedStringValue
+}
+
+func (c *configOptions) TTSOpenAIVoice() string {
+	return c.options["TTS_OPENAI_VOICE"].parsedStringValue
+}
+
+func (c *configOptions) TTSOpenAISpeed() float64 {
+	// Parse float from string since codebase doesn't have floatType
+	value, err := strconv.ParseFloat(c.options["TTS_OPENAI_SPEED"].parsedStringValue, 64)
+	if err != nil {
+		// Log warning about invalid value (add slog import if needed)
+		// slog.Warn("invalid TTS_OPENAI_SPEED value, using default", "error", err)
+		return 1.0 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSOpenAIResponseFormat() string {
+	return c.options["TTS_OPENAI_RESPONSE_FORMAT"].parsedStringValue
+}
+
+func (c *configOptions) TTSOpenAIInstructions() string {
+	return c.options["TTS_OPENAI_INSTRUCTIONS"].parsedStringValue
+}
+
+// Aliyun accessor methods
+func (c *configOptions) TTSAliyunEndpoint() string {
+	return c.options["TTS_ALIYUN_ENDPOINT"].parsedStringValue
+}
+
+func (c *configOptions) TTSAliyunModel() string {
+	return c.options["TTS_ALIYUN_MODEL"].parsedStringValue
+}
+
+func (c *configOptions) TTSAliyunVoice() string {
+	return c.options["TTS_ALIYUN_VOICE"].parsedStringValue
+}
+
+func (c *configOptions) TTSAliyunLanguageType() string {
+	return c.options["TTS_ALIYUN_LANGUAGE_TYPE"].parsedStringValue
+}
+
+func (c *configOptions) TTSAliyunStream() bool {
+	return c.options["TTS_ALIYUN_STREAM"].parsedBoolValue
+}
+
+// ElevenLabs accessor methods
+func (c *configOptions) TTSElevenLabsEndpoint() string {
+	return c.options["TTS_ELEVENLABS_ENDPOINT"].parsedStringValue
+}
+
+func (c *configOptions) TTSElevenLabsVoiceID() string {
+	return c.options["TTS_ELEVENLABS_VOICE_ID"].parsedStringValue
+}
+
+func (c *configOptions) TTSElevenLabsModelID() string {
+	return c.options["TTS_ELEVENLABS_MODEL_ID"].parsedStringValue
+}
+
+func (c *configOptions) TTSElevenLabsLanguageCode() string {
+	return c.options["TTS_ELEVENLABS_LANGUAGE_CODE"].parsedStringValue
+}
+
+func (c *configOptions) TTSElevenLabsStability() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_ELEVENLABS_STABILITY"].parsedStringValue, 64)
+	if err != nil {
+		// Log warning about invalid value (add slog import if needed)
+		// slog.Warn("invalid TTS_ELEVENLABS_STABILITY value, using default", "error", err)
+		return 0.5 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSElevenLabsSimilarityBoost() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_ELEVENLABS_SIMILARITY_BOOST"].parsedStringValue, 64)
+	if err != nil {
+		// Log warning about invalid value (add slog import if needed)
+		// slog.Warn("invalid TTS_ELEVENLABS_SIMILARITY_BOOST value, using default", "error", err)
+		return 0.75 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSElevenLabsStyle() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_ELEVENLABS_STYLE"].parsedStringValue, 64)
+	if err != nil {
+		// Log warning about invalid value (add slog import if needed)
+		// slog.Warn("invalid TTS_ELEVENLABS_STYLE value, using default", "error", err)
+		return 0 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSElevenLabsUseSpeakerBoost() bool {
+	return c.options["TTS_ELEVENLABS_USE_SPEAKER_BOOST"].parsedBoolValue
+}
+
+func (c *configOptions) TTSElevenLabsOutputFormat() string {
+	return c.options["TTS_ELEVENLABS_OUTPUT_FORMAT"].parsedStringValue
+}
+
+func (c *configOptions) TTSElevenLabsOptimizeLatency() int {
+	return c.options["TTS_ELEVENLABS_OPTIMIZE_LATENCY"].parsedIntValue
 }
 
 func (c *configOptions) ConfigMap(redactSecret bool) []*optionPair {
