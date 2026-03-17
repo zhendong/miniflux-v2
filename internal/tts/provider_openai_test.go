@@ -18,7 +18,10 @@ func TestOpenAI_BuildRequestBody(t *testing.T) {
 	}
 
 	provider := newOpenAIProvider(config)
-	body := provider.buildRequestBody("Hello world", "en")
+	body, err := provider.buildRequestBody("Hello world", "en")
+	if err != nil {
+		t.Fatalf("Failed to build request body: %v", err)
+	}
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal(body, &parsed); err != nil {
@@ -60,17 +63,44 @@ func TestOpenAI_BuildRequestBody_NoInstructions(t *testing.T) {
 	}
 
 	provider := newOpenAIProvider(config)
-	body := provider.buildRequestBody("Test", "en")
+	body, err := provider.buildRequestBody("Test", "en")
+	if err != nil {
+		t.Fatalf("Failed to build request body: %v", err)
+	}
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		t.Fatalf("Failed to parse request body: %v", err)
 	}
 
-	// Instructions should only be included for gpt-4o-mini-tts model
-	if parsed["model"] == "tts-1" {
-		if _, exists := parsed["instructions"]; exists {
-			t.Error("instructions field should not be present for non-gpt-4o-mini-tts models")
-		}
+	// Instructions should not be present for non-gpt-4o-mini-tts models
+	if _, exists := parsed["instructions"]; exists {
+		t.Error("instructions field should not be present for non-gpt-4o-mini-tts models")
+	}
+}
+
+func TestOpenAI_BuildRequestBody_GPT4oMiniNoInstructions(t *testing.T) {
+	config := &ProviderConfig{
+		Model:        "gpt-4o-mini-tts",
+		Voice:        "alloy",
+		Speed:        1.0,
+		Format:       "mp3",
+		Instructions: "", // Empty
+	}
+
+	provider := newOpenAIProvider(config)
+	body, err := provider.buildRequestBody("Test", "en")
+	if err != nil {
+		t.Fatalf("Failed to build request body: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("Failed to parse request body: %v", err)
+	}
+
+	// Instructions should not be present even for gpt-4o-mini-tts if empty
+	if _, exists := parsed["instructions"]; exists {
+		t.Error("instructions field should not be present when empty")
 	}
 }
