@@ -6,6 +6,7 @@ package tts
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 type elevenLabsProvider struct {
@@ -23,13 +24,13 @@ func (p *elevenLabsProvider) Generate(text, language string) (*ProviderResult, e
 func (p *elevenLabsProvider) buildRequestURL() string {
 	return fmt.Sprintf("%s/%s/stream?output_format=%s&optimize_streaming_latency=%d",
 		p.config.Endpoint,
-		p.config.VoiceID,
-		p.config.OutputFormat,
+		url.PathEscape(p.config.VoiceID),
+		url.QueryEscape(p.config.OutputFormat),
 		p.config.OptimizeLatency,
 	)
 }
 
-func (p *elevenLabsProvider) buildRequestBody(text string) []byte {
+func (p *elevenLabsProvider) buildRequestBody(text string) ([]byte, error) {
 	reqBody := map[string]interface{}{
 		"text":     text,
 		"model_id": p.config.Model,
@@ -46,6 +47,9 @@ func (p *elevenLabsProvider) buildRequestBody(text string) []byte {
 		reqBody["language_code"] = p.config.LanguageCode
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
-	return bodyBytes
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return bodyBytes, nil
 }
