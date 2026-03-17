@@ -33,3 +33,68 @@ func TestProviderResult_HasAudioURL(t *testing.T) {
 		t.Error("Expected ExpiresAt to be set")
 	}
 }
+
+func TestNewProvider_UnsupportedProvider(t *testing.T) {
+	config := &ProviderConfig{
+		ProviderType: "invalid",
+	}
+
+	_, err := NewProvider(config)
+	if err == nil {
+		t.Fatal("Expected error for unsupported provider")
+	}
+
+	expected := "unsupported TTS provider: invalid"
+	if err.Error() != expected {
+		t.Errorf("Expected error %q, got %q", expected, err.Error())
+	}
+}
+
+func TestNewProvider_OpenAI(t *testing.T) {
+	config := &ProviderConfig{
+		ProviderType: "openai",
+		APIKey:       "test-key",
+	}
+
+	provider, err := NewProvider(config)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if provider == nil {
+		t.Fatal("Expected provider to be created")
+	}
+}
+
+func TestNewProvider_Aliyun(t *testing.T) {
+	config := &ProviderConfig{
+		ProviderType: "aliyun",
+		APIKey:       "test-key",
+	}
+
+	provider, err := NewProvider(config)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if provider == nil {
+		t.Fatal("Expected provider to be created")
+	}
+}
+
+func TestNewProvider_ElevenLabs(t *testing.T) {
+	config := &ProviderConfig{
+		ProviderType: "elevenlabs",
+		APIKey:       "test-key",
+		VoiceID:      "test-voice-id",
+	}
+
+	provider, err := NewProvider(config)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if provider == nil {
+		t.Fatal("Expected provider to be created")
+	}
+}
