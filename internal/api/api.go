@@ -72,6 +72,8 @@ func NewHandler(store *storage.Storage, pool *worker.Pool) http.Handler {
 	mux.HandleFunc("POST /v1/api-keys", handler.createAPIKeyHandler)
 	mux.HandleFunc("GET /v1/api-keys", handler.getAPIKeysHandler)
 	mux.HandleFunc("DELETE /v1/api-keys/{apiKeyID}", handler.deleteAPIKeyHandler)
+	mux.HandleFunc("GET /v1/entries/{entryID}/tts", handler.getTTSAudioHandler)
+	mux.HandleFunc("GET /v1/tts/audio/{filename}", handler.serveTTSAudioFileHandler)
 
 	return middleware.withCORSHeaders(middleware.validateAPIKeyAuth(middleware.validateBasicAuth(mux)))
 }
