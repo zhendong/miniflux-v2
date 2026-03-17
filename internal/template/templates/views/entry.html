@@ -76,6 +76,19 @@
                         data-value="{{ if .entry.Starred }}star{{ else }}unstar{{ end }}"
                         >{{ if .entry.Starred }}{{ icon "unstar" }}{{ else }}{{ icon "star" }}{{ end }}<span class="icon-label">{{ if .entry.Starred }}{{ t "entry.starred.toggle.off" }}{{ else }}{{ t "entry.starred.toggle.on" }}{{ end }}</span></button>
                 </li>
+                {{ if .hasTTS }}
+                <li>
+                    <button
+                        class="page-button"
+                        data-tts-button="true"
+                        data-entry-id="{{ .entry.ID }}"
+                        title="{{ t "entry.tts.title" }}"
+                        data-label-loading="{{ t "entry.tts.loading" }}"
+                        data-label-ready="{{ t "entry.tts.ready" }}"
+                        data-label-error="{{ t "entry.tts.error" }}"
+                        >{{ icon "speaker" }}<span class="icon-label">{{ t "entry.tts.label" }}</span></button>
+                </li>
+                {{ end }}
                 {{ if .hasSaveEntry }}
                 <li>
                     <button
@@ -137,6 +150,18 @@
                 {{ end }}
             </ul>
         </div>
+        {{ if .hasTTS }}
+        <div class="tts-player" id="tts-player-{{ .entry.ID }}" style="display: none; margin-top: 1rem;">
+            <audio
+                controls
+                preload="none"
+                data-entry-id="{{ .entry.ID }}"
+                style="width: 100%; max-width: 600px;"
+            >
+                <p>{{ t "entry.tts.unsupported" }}</p>
+            </audio>
+        </div>
+        {{ end }}
         {{ end }}
         <div class="entry-meta" dir="auto">
             <span class="entry-website">
