@@ -5,15 +5,21 @@ package tts
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
+	"time"
+
+	"miniflux.app/v2/internal/version"
 )
 
 const (
-	maxSSEStreamSize = 50 << 20 // 50MB total audio
+	maxSSEStreamSize = 50 << 20   // 50MB total audio
 )
 
 type aliyunProvider struct {
@@ -25,7 +31,112 @@ func newAliyunProvider(config *ProviderConfig) *aliyunProvider {
 }
 
 func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error) {
-	return &ProviderResult{}, nil
+	// Validate content length
+	if len(text) > maxContentLength {
+		return nil, fmt.Errorf("text too large for TTS (%d > %d characters)", len(text), maxContentLength)
+	}
+
+	// Map language code to full name
+	languageType := p.config.LanguageType
+	if languageType == "" {
+		languageType = p.mapLanguage(language)
+	}
+
+	// Build request body
+	reqBody := map[string]interface{}{
+		"model": p.config.Model,
+		"input": map[string]string{
+			"text": text,
+		},
+	}
+
+	if p.config.Voice != "" {
+		reqBody["input"].(map[string]string)["voice"] = p.config.Voice
+	}
+
+	if languageType != "" {
+		reqBody["input"].(map[string]string)["language_type"] = languageType
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", p.config.Endpoint, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.config.APIKey)
+	req.Header.Set("User-Agent", "Miniflux/"+version.Version)
+
+	// Enable SSE for streaming mode
+	if p.config.Stream {
+		req.Header.Set("X-DashScope-SSE", "enable")
+	}
+
+	// Execute request
+	resp, err := p.config.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Aliyun request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		return nil, p.handleHTTPError(resp.StatusCode)
+	}
+
+	// Handle streaming vs non-streaming response
+	if p.config.Stream {
+		// Parse SSE stream
+		reader := bufio.NewReader(resp.Body)
+		audioData, err := p.parseSSEStream(reader)
+		if err != nil {
+			return nil, err
+		}
+		return &ProviderResult{
+			AudioData: audioData,
+		}, nil
+	} else {
+		// Parse JSON response with URL
+		var jsonResp struct {
+			Output struct {
+				Audio struct {
+					URL string `json:"url"`
+				} `json:"audio"`
+			} `json:"output"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&jsonResp); err != nil {
+			return nil, fmt.Errorf("failed to parse Aliyun response: %w", err)
+		}
+
+		return &ProviderResult{
+			AudioURL: jsonResp.Output.Audio.URL,
+		}, nil
+	}
+}
+
+func (p *aliyunProvider) handleHTTPError(statusCode int) error {
+	switch statusCode {
+	case 400:
+		return fmt.Errorf("invalid Aliyun request parameters")
+	case 401, 403:
+		return fmt.Errorf("Aliyun authentication failed")
+	case 429:
+		return fmt.Errorf("Aliyun rate limit exceeded")
+	case 500, 502, 503:
+		return fmt.Errorf("Aliyun service unavailable")
+	default:
+		return fmt.Errorf("Aliyun request failed: HTTP %d", statusCode)
+	}
 }
 
 // mapLanguage converts ISO 639-1 codes to Aliyun full language names
