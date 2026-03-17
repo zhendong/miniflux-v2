@@ -72,6 +72,8 @@ func Serve(router *mux.Router, store *storage.Storage, pool *worker.Pool) {
 	sr.HandleFunc("/entries/{entryID}/star", handler.toggleStarred).Methods(http.MethodPut)
 	sr.HandleFunc("/entries/{entryID}/save", handler.saveEntry).Methods(http.MethodPost)
 	sr.HandleFunc("/entries/{entryID}/fetch-content", handler.fetchContent).Methods(http.MethodGet)
+	sr.HandleFunc("/entries/{entryID}/tts", handler.getTTSAudio).Methods(http.MethodGet)
+	sr.HandleFunc("/tts/audio/{filename}", handler.serveTTSAudioFile).Methods(http.MethodGet)
 	sr.HandleFunc("/flush-history", handler.flushHistory).Methods(http.MethodPut, http.MethodDelete)
 	sr.HandleFunc("/icons/{iconID}", handler.getIconByIconID).Methods(http.MethodGet)
 	sr.HandleFunc("/enclosures/{enclosureID}", handler.getEnclosureByID).Methods(http.MethodGet)
