@@ -6,6 +6,8 @@ package tts
 import (
 	"bufio"
 	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -158,5 +160,86 @@ func TestAliyun_ParseSSEStream_MixedContent(t *testing.T) {
 	expected := "audio 1audio 2"
 	if string(audioData) != expected {
 		t.Errorf("Expected %q, got %q", expected, string(audioData))
+	}
+}
+
+func TestAliyun_Generate_Streaming(t *testing.T) {
+	// Create mock SSE server
+	chunk1 := base64.StdEncoding.EncodeToString([]byte("audio chunk 1"))
+	chunk2 := base64.StdEncoding.EncodeToString([]byte("audio chunk 2"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify headers
+		if r.Header.Get("X-DashScope-SSE") != "enable" {
+			t.Error("Expected X-DashScope-SSE: enable header")
+		}
+		if r.Header.Get("Authorization") != "Bearer test-api-key" {
+			t.Error("Expected Authorization header")
+		}
+
+		// Send SSE events
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Write([]byte("data: {\"output\":{\"audio\":{\"data\":\"" + chunk1 + "\"}}}\n\n"))
+		w.Write([]byte("data: {\"output\":{\"audio\":{\"data\":\"" + chunk2 + "\"}}}\n\n"))
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:   server.URL,
+		APIKey:     "test-api-key",
+		Model:      "qwen3-tts-flash",
+		Voice:      "Cherry",
+		Stream:     true,
+		HTTPClient: server.Client(),
+	}
+
+	provider := newAliyunProvider(config)
+	result, err := provider.Generate("测试文本", "zh")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected := "audio chunk 1audio chunk 2"
+	if string(result.AudioData) != expected {
+		t.Errorf("Expected %q, got %q", expected, string(result.AudioData))
+	}
+}
+
+func TestAliyun_Generate_NonStreaming(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no SSE header in non-streaming mode
+		if r.Header.Get("X-DashScope-SSE") != "" {
+			t.Error("Should not have X-DashScope-SSE header in non-streaming mode")
+		}
+
+		// Return URL response
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"output":{"audio":{"url":"https://example.com/audio.mp3"}}}`))
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:   server.URL,
+		APIKey:     "test-api-key",
+		Model:      "qwen3-tts-flash",
+		Voice:      "Cherry",
+		Stream:     false,
+		HTTPClient: server.Client(),
+	}
+
+	provider := newAliyunProvider(config)
+	result, err := provider.Generate("Test", "en")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result.AudioURL != "https://example.com/audio.mp3" {
+		t.Errorf("Expected URL, got %q", result.AudioURL)
+	}
+
+	if len(result.AudioData) != 0 {
+		t.Error("AudioData should be empty in non-streaming mode")
 	}
 }
