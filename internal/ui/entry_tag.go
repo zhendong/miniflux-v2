@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"miniflux.app/v2/internal/config"
 	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
 	"miniflux.app/v2/internal/http/route"
@@ -85,6 +86,7 @@ func (h *handler) showTagEntryPage(w http.ResponseWriter, r *http.Request) {
 	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
 	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
 	view.Set("hasSaveEntry", h.store.HasSaveEntry(user.ID))
+	view.Set("hasTTS", config.Opts.TTSEnabled())
 
 	response.HTML(w, r, view.Render("entry"))
 }
