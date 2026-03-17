@@ -5,6 +5,7 @@ package tts
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 type openAIProvider struct {
@@ -19,7 +20,7 @@ func (p *openAIProvider) Generate(text, language string) (*ProviderResult, error
 	return &ProviderResult{}, nil
 }
 
-func (p *openAIProvider) buildRequestBody(text, language string) []byte {
+func (p *openAIProvider) buildRequestBody(text, language string) ([]byte, error) {
 	reqBody := map[string]interface{}{
 		"model":           p.config.Model,
 		"input":           text,
@@ -33,6 +34,9 @@ func (p *openAIProvider) buildRequestBody(text, language string) []byte {
 		reqBody["instructions"] = p.config.Instructions
 	}
 
-	bodyBytes, _ := json.Marshal(reqBody)
-	return bodyBytes
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return bodyBytes, nil
 }
