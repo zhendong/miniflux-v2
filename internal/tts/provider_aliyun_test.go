@@ -243,3 +243,111 @@ func TestAliyun_Generate_NonStreaming(t *testing.T) {
 		t.Error("AudioData should be empty in non-streaming mode")
 	}
 }
+
+func TestAliyun_HandleHTTPError(t *testing.T) {
+	tests := []struct {
+		statusCode int
+		wantMsg    string
+	}{
+		{400, "invalid Aliyun request parameters"},
+		{401, "Aliyun authentication failed"},
+		{403, "Aliyun authentication failed"},
+		{429, "Aliyun rate limit exceeded"},
+		{500, "Aliyun service unavailable"},
+		{502, "Aliyun service unavailable"},
+		{503, "Aliyun service unavailable"},
+		{404, "Aliyun request failed: HTTP 404"},
+	}
+
+	provider := newAliyunProvider(&ProviderConfig{})
+
+	for _, tt := range tests {
+		err := provider.handleHTTPError(tt.statusCode)
+		if err == nil {
+			t.Errorf("handleHTTPError(%d) expected error, got nil", tt.statusCode)
+		}
+		if !strings.Contains(err.Error(), tt.wantMsg) {
+			t.Errorf("handleHTTPError(%d) = %q, want substring %q", tt.statusCode, err.Error(), tt.wantMsg)
+		}
+	}
+}
+
+func TestAliyun_Generate_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:   server.URL,
+		APIKey:     "test-api-key",
+		Model:      "qwen3-tts-flash",
+		Voice:      "Cherry",
+		Stream:     false,
+		HTTPClient: server.Client(),
+	}
+
+	provider := newAliyunProvider(config)
+	_, err := provider.Generate("Test", "en")
+
+	if err == nil {
+		t.Fatal("Expected error for HTTP 401")
+	}
+
+	if !strings.Contains(err.Error(), "authentication failed") {
+		t.Errorf("Expected authentication error, got: %v", err)
+	}
+}
+
+func TestAliyun_Generate_ContentTooLarge(t *testing.T) {
+	config := &ProviderConfig{
+		Endpoint:   "http://example.com",
+		APIKey:     "test-api-key",
+		Model:      "qwen3-tts-flash",
+		Voice:      "Cherry",
+		HTTPClient: &http.Client{},
+	}
+
+	// Create text larger than maxContentLength (50000)
+	largeText := strings.Repeat("a", 50001)
+
+	provider := newAliyunProvider(config)
+	_, err := provider.Generate(largeText, "en")
+
+	if err == nil {
+		t.Fatal("Expected error for content too large")
+	}
+
+	if !strings.Contains(err.Error(), "too large") {
+		t.Errorf("Expected 'too large' error, got: %v", err)
+	}
+}
+
+func TestAliyun_Generate_NonStreaming_EmptyURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Return response with empty URL
+		w.Write([]byte(`{"output":{"audio":{"url":""}}}`))
+	}))
+	defer server.Close()
+
+	config := &ProviderConfig{
+		Endpoint:   server.URL,
+		APIKey:     "test-api-key",
+		Model:      "qwen3-tts-flash",
+		Voice:      "Cherry",
+		Stream:     false,
+		HTTPClient: server.Client(),
+	}
+
+	provider := newAliyunProvider(config)
+	_, err := provider.Generate("Test", "en")
+
+	if err == nil {
+		t.Fatal("Expected error for empty URL response")
+	}
+
+	if !strings.Contains(err.Error(), "empty audio URL") {
+		t.Errorf("Expected 'empty audio URL' error, got: %v", err)
+	}
+}

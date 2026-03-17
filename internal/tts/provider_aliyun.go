@@ -118,6 +118,10 @@ func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error
 			return nil, fmt.Errorf("failed to parse Aliyun response: %w", err)
 		}
 
+		if jsonResp.Output.Audio.URL == "" {
+			return nil, fmt.Errorf("Aliyun response contains empty audio URL")
+		}
+
 		return &ProviderResult{
 			AudioURL: jsonResp.Output.Audio.URL,
 		}, nil
