@@ -112,6 +112,13 @@
     --keyboard-shortcuts-li-color: #9b9b9b;
 
     --counter-color: #bbb;
+
+    --tts-loading-background: rgba(255, 167, 38, 0.15);
+    --tts-loading-border: #ff9800;
+    --tts-ready-background: rgba(102, 187, 106, 0.15);
+    --tts-ready-border: #4caf50;
+    --tts-error-background: rgba(239, 83, 80, 0.15);
+    --tts-error-border: #f44336;
 }
 
 html {
