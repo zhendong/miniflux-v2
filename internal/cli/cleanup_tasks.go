@@ -5,6 +5,8 @@ package cli // import "miniflux.app/v2/internal/cli"
 
 import (
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"miniflux.app/v2/internal/config"
@@ -20,6 +22,35 @@ func runCleanupTasks(store *storage.Storage) {
 		slog.Int64("application_sessions_removed", nbSessions),
 		slog.Int64("user_sessions_removed", nbUserSessions),
 	)
+
+	// TTS cache cleanup
+	if config.Opts.TTSEnabled() {
+		filePaths, err := store.CleanupExpiredTTSCache()
+		if err != nil {
+			slog.Error("Unable to cleanup expired TTS cache", slog.Any("error", err))
+		} else if len(filePaths) > 0 {
+			// Delete physical files
+			storagePath := config.Opts.TTSStoragePath()
+			deletedCount := 0
+			for _, relPath := range filePaths {
+				fullPath := filepath.Join(storagePath, relPath)
+				if err := os.Remove(fullPath); err != nil {
+					slog.Warn("Unable to delete TTS audio file",
+						slog.String("file_path", fullPath),
+						slog.Any("error", err),
+					)
+				} else {
+					deletedCount++
+				}
+			}
+			slog.Info("TTS cache cleanup completed",
+				slog.Int("database_entries_removed", len(filePaths)),
+				slog.Int("files_deleted", deletedCount),
+			)
+		} else {
+			slog.Debug("No expired TTS cache entries to cleanup")
+		}
+	}
 
 	startTime := time.Now()
 	if rowsAffected, err := store.ArchiveEntries(model.EntryStatusRead, config.Opts.CleanupArchiveReadInterval(), config.Opts.CleanupArchiveBatchSize()); err != nil {
