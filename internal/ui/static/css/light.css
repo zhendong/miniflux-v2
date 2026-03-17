@@ -112,6 +112,13 @@
     --keyboard-shortcuts-li-color: #333;
 
     --counter-color: #666;
+
+    --tts-loading-background: #fff3e0;
+    --tts-loading-border: #ffa726;
+    --tts-ready-background: #e8f5e9;
+    --tts-ready-border: #66bb6a;
+    --tts-error-background: #ffebee;
+    --tts-error-border: #ef5350;
 }
 
 html {

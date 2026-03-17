@@ -1376,3 +1376,33 @@ footer .elevator {
 .pagination-entry-top .elevator {
     display: none;
 }
+
+/* TTS Button States */
+[data-tts-button] {
+    transition: all 0.2s ease;
+}
+
+[data-tts-button].tts-loading {
+    border-color: var(--tts-loading-border);
+    background-color: var(--tts-loading-background);
+    cursor: wait;
+}
+
+[data-tts-button].tts-ready {
+    border-color: var(--tts-ready-border);
+    background-color: var(--tts-ready-background);
+}
+
+[data-tts-button].tts-error {
+    border-color: var(--tts-error-border);
+    background-color: var(--tts-error-background);
+}
+
+/* TTS Player */
+.tts-player {
+    padding: 1rem 0;
+}
+
+.tts-player audio {
+    border-radius: 4px;
+}
