@@ -97,5 +97,10 @@ func (p *aliyunProvider) parseSSEStream(reader *bufio.Reader) ([]byte, error) {
 		}
 	}
 
+	// Ensure we received audio data from the stream
+	if len(audioData) == 0 {
+		return nil, fmt.Errorf("no audio data received from SSE stream")
+	}
+
 	return audioData, nil
 }

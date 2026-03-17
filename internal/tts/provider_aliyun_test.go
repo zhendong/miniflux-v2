@@ -83,3 +83,80 @@ func TestAliyun_ParseSSEStream_InvalidBase64(t *testing.T) {
 		t.Fatal("Expected error for invalid base64")
 	}
 }
+
+func TestAliyun_ParseSSEStream_SizeLimit(t *testing.T) {
+	// Create a large chunk that exceeds 50MB when accumulated
+	largeData := make([]byte, 51<<20) // 51MB
+	for i := range largeData {
+		largeData[i] = 'A'
+	}
+	chunk := base64.StdEncoding.EncodeToString(largeData)
+
+	sseData := "data: {\"output\":{\"audio\":{\"data\":\"" + chunk + "\"}}}\n\n"
+
+	reader := bufio.NewReader(strings.NewReader(sseData))
+	provider := newAliyunProvider(&ProviderConfig{})
+
+	_, err := provider.parseSSEStream(reader)
+	if err == nil {
+		t.Fatal("Expected error for size limit exceeded")
+	}
+	if !strings.Contains(err.Error(), "size limit") {
+		t.Errorf("Expected size limit error, got: %v", err)
+	}
+}
+
+func TestAliyun_ParseSSEStream_EmptyStream(t *testing.T) {
+	// Empty SSE stream
+	sseData := ""
+
+	reader := bufio.NewReader(strings.NewReader(sseData))
+	provider := newAliyunProvider(&ProviderConfig{})
+
+	_, err := provider.parseSSEStream(reader)
+	if err == nil {
+		t.Fatal("Expected error for empty stream")
+	}
+	if !strings.Contains(err.Error(), "no audio data") {
+		t.Errorf("Expected 'no audio data' error, got: %v", err)
+	}
+}
+
+func TestAliyun_ParseSSEStream_NoDataEvents(t *testing.T) {
+	// SSE stream with non-data lines only
+	sseData := "event: start\n\n:comment\n\nid: 123\n\n"
+
+	reader := bufio.NewReader(strings.NewReader(sseData))
+	provider := newAliyunProvider(&ProviderConfig{})
+
+	_, err := provider.parseSSEStream(reader)
+	if err == nil {
+		t.Fatal("Expected error for stream with no data events")
+	}
+}
+
+func TestAliyun_ParseSSEStream_MixedContent(t *testing.T) {
+	// SSE stream with mixed content (comments, events, data)
+	chunk1 := base64.StdEncoding.EncodeToString([]byte("audio 1"))
+	chunk2 := base64.StdEncoding.EncodeToString([]byte("audio 2"))
+
+	sseData := ":comment line\n\n" +
+		"event: start\n\n" +
+		"data: {\"output\":{\"audio\":{\"data\":\"" + chunk1 + "\"}}}\n\n" +
+		":another comment\n\n" +
+		"id: 123\n\n" +
+		"data: {\"output\":{\"audio\":{\"data\":\"" + chunk2 + "\"}}}\n\n"
+
+	reader := bufio.NewReader(strings.NewReader(sseData))
+	provider := newAliyunProvider(&ProviderConfig{})
+
+	audioData, err := provider.parseSSEStream(reader)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expected := "audio 1audio 2"
+	if string(audioData) != expected {
+		t.Errorf("Expected %q, got %q", expected, string(audioData))
+	}
+}
