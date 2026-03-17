@@ -5,6 +5,7 @@ package tts
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -120,7 +121,11 @@ func GetOrGenerateAudio(
 		ExpiresAt: expiresAt,
 	}); err != nil {
 		// Log but don't fail - file is saved
-		fmt.Printf("Warning: failed to cache TTS metadata: %v\n", err)
+		slog.Warn("Failed to cache TTS metadata",
+			slog.Int64("entry_id", entry.ID),
+			slog.Int64("user_id", userID),
+			slog.Any("error", err),
+		)
 	}
 
 	return &AudioResult{
