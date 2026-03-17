@@ -81,6 +81,12 @@
         "Show %d more tags"
     ],
     "entry.unshare.label": "Unshare",
+    "entry.tts.title": "Read aloud",
+    "entry.tts.label": "Read Aloud",
+    "entry.tts.loading": "Generating audio...",
+    "entry.tts.ready": "Play audio",
+    "entry.tts.error": "TTS failed - click to retry",
+    "entry.tts.unsupported": "Your browser does not support audio playback.",
     "error.api_key_already_exists": "This API Key already exists.",
     "error.bad_credentials": "Invalid username or password.",
     "error.category_already_exists": "This category already exists.",
