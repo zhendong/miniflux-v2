@@ -67,7 +67,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Get or generate audio
-	cacheDuration := time.Duration(config.Opts.TTSCacheDuration()) * time.Hour
+	cacheDuration := config.Opts.TTSCacheDuration()
 	storagePath := config.Opts.TTSStoragePath()
 	defaultLanguage := config.Opts.TTSDefaultLanguage()
 
