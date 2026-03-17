@@ -1267,6 +1267,126 @@ function initializeClickHandlers() {
     }, true);
 }
 
+/**
+ * Show a toast notification with the given message.
+ * This is a wrapper function to maintain compatibility with the TTS handler.
+ *
+ * @param {string} message - The message to display.
+ */
+window.showToast = function(message) {
+    showToastNotification("unread", message);
+};
+
+/**
+ * TTS button handler
+ *
+ * This handler manages TTS button clicks, API calls, and player state management.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const ttsButtons = document.querySelectorAll('[data-tts-button]');
+
+    ttsButtons.forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            const entryId = this.dataset.entryId;
+            const labelLoading = this.dataset.labelLoading;
+            const labelReady = this.dataset.labelReady;
+            const labelError = this.dataset.labelError;
+
+            // Validate entryId
+            if (!entryId || !/^\d+$/.test(entryId)) {
+                console.error('Invalid entry ID:', entryId);
+                if (window.showToast) {
+                    window.showToast('Invalid entry ID');
+                }
+                return;
+            }
+
+            // Check if already loaded (cached)
+            const player = document.getElementById(`tts-player-${entryId}`);
+            const audio = player ? player.querySelector('audio') : null;
+
+            if (audio && audio.src) {
+                // Already loaded - toggle player
+                player.style.display = player.style.display === 'none' ? 'block' : 'none';
+                if (player.style.display === 'block') {
+                    audio.play().catch(() => {
+                        // Handle promise rejection from play()
+                        console.error('Audio playback failed');
+                    });
+                }
+                return;
+            }
+
+            // Update button state to loading
+            this.disabled = true;
+            this.classList.add('tts-loading');
+            const iconLabel = this.querySelector('.icon-label');
+            if (iconLabel) {
+                iconLabel.textContent = labelLoading;
+            }
+
+            try {
+                // Verify player and audio element exist before proceeding
+                if (!player || !audio) {
+                    throw new Error('Audio player element not found');
+                }
+
+                // Call API to get/generate audio
+                const response = await fetch(`/v1/entries/${entryId}/tts`, {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+
+                if (response.status === 429) {
+                    throw new Error('Rate limit exceeded - please try again later');
+                }
+
+                if (!response.ok) {
+                    throw new Error(`TTS generation failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // Load audio into player
+                audio.src = data.audio_url;
+                player.style.display = 'block';
+                audio.play().catch(() => {
+                    // Handle promise rejection from play()
+                    console.error('Audio playback failed');
+                    throw new Error('Audio playback failed');
+                });
+
+                // Update button state to ready
+                this.classList.remove('tts-loading');
+                this.classList.add('tts-ready');
+                if (iconLabel) {
+                    iconLabel.textContent = labelReady;
+                }
+
+            } catch (error) {
+                console.error('TTS error:', error);
+
+                // Update button state to error
+                this.classList.remove('tts-loading');
+                this.classList.add('tts-error');
+                if (iconLabel) {
+                    iconLabel.textContent = labelError;
+                }
+
+                // Show toast notification
+                if (window.showToast) {
+                    window.showToast(error.message || 'TTS generation failed');
+                }
+
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+});
+
 // Initialize application handlers
 initializeMainMenuHandlers();
 initializeFormHandlers();
