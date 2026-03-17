@@ -96,6 +96,10 @@ func (s *Storage) GetExpiredTTSCache() ([]*model.TTSCache, error) {
 		caches = append(caches, &cache)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating expired TTS caches: %w", err)
+	}
+
 	return caches, nil
 }
 
@@ -118,4 +122,34 @@ func (s *Storage) DeleteTTSCache(id int64) error {
 	}
 
 	return nil
+}
+
+// CleanupExpiredTTSCache deletes expired TTS cache entries and returns file paths.
+func (s *Storage) CleanupExpiredTTSCache() ([]string, error) {
+	query := `
+		DELETE FROM tts_audio_cache
+		WHERE expires_at < NOW()
+		RETURNING file_path
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("unable to delete expired TTS cache: %w", err)
+	}
+	defer rows.Close()
+
+	var filePaths []string
+	for rows.Next() {
+		var filePath string
+		if err := rows.Scan(&filePath); err != nil {
+			return nil, fmt.Errorf("unable to scan TTS cache file path: %w", err)
+		}
+		filePaths = append(filePaths, filePath)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating expired TTS caches for cleanup: %w", err)
+	}
+
+	return filePaths, nil
 }
