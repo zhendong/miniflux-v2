@@ -64,6 +64,9 @@ type ProviderConfig struct {
 
 // NewProvider creates a new TTS provider based on the provider type.
 func NewProvider(config *ProviderConfig) (Provider, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
 	switch config.ProviderType {
 	case "openai":
 		return newOpenAIProvider(config), nil
@@ -77,14 +80,39 @@ func NewProvider(config *ProviderConfig) (Provider, error) {
 }
 
 // Stub implementations - to be replaced in Task 1.2
+
+type openAIProvider struct {
+	config *ProviderConfig
+}
+
 func newOpenAIProvider(config *ProviderConfig) Provider {
-	return nil
+	return &openAIProvider{config: config}
+}
+
+func (p *openAIProvider) Generate(text, language string) (*ProviderResult, error) {
+	return &ProviderResult{}, nil
+}
+
+type aliyunProvider struct {
+	config *ProviderConfig
 }
 
 func newAliyunProvider(config *ProviderConfig) Provider {
-	return nil
+	return &aliyunProvider{config: config}
+}
+
+func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error) {
+	return &ProviderResult{}, nil
+}
+
+type elevenLabsProvider struct {
+	config *ProviderConfig
 }
 
 func newElevenLabsProvider(config *ProviderConfig) Provider {
-	return nil
+	return &elevenLabsProvider{config: config}
+}
+
+func (p *elevenLabsProvider) Generate(text, language string) (*ProviderResult, error) {
+	return &ProviderResult{}, nil
 }
