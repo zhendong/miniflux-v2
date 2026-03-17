@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"miniflux.app/v2/internal/http/client"
 )
 
 // Provider is the interface that all TTS providers must implement.
@@ -77,4 +79,86 @@ func NewProvider(config *ProviderConfig) (Provider, error) {
 	default:
 		return nil, fmt.Errorf("unsupported TTS provider: %s", config.ProviderType)
 	}
+}
+
+// ConfigLoader is an interface for loading TTS configuration.
+// This allows the TTS package to access config values without depending on the config package.
+type ConfigLoader interface {
+	TTSProvider() string
+	TTSAPIKey() string
+	TTSOpenAIEndpoint() string
+	TTSOpenAIModel() string
+	TTSOpenAIVoice() string
+	TTSOpenAISpeed() float64
+	TTSOpenAIResponseFormat() string
+	TTSOpenAIInstructions() string
+	TTSAliyunEndpoint() string
+	TTSAliyunModel() string
+	TTSAliyunVoice() string
+	TTSAliyunLanguageType() string
+	TTSAliyunStream() bool
+	TTSElevenLabsEndpoint() string
+	TTSElevenLabsVoiceID() string
+	TTSElevenLabsModelID() string
+	TTSElevenLabsLanguageCode() string
+	TTSElevenLabsStability() float64
+	TTSElevenLabsSimilarityBoost() float64
+	TTSElevenLabsStyle() float64
+	TTSElevenLabsUseSpeakerBoost() bool
+	TTSElevenLabsOutputFormat() string
+	TTSElevenLabsOptimizeLatency() int
+	IntegrationAllowPrivateNetworks() bool
+}
+
+// NewProviderConfigFromLoader creates a ProviderConfig from a ConfigLoader.
+func NewProviderConfigFromLoader(loader ConfigLoader) *ProviderConfig {
+	providerType := loader.TTSProvider()
+
+	config := &ProviderConfig{
+		ProviderType: providerType,
+		APIKey:       loader.TTSAPIKey(),
+		HTTPClient: newHTTPClient(
+			30*time.Second,
+			!loader.IntegrationAllowPrivateNetworks(),
+		),
+	}
+
+	switch providerType {
+	case "openai":
+		config.Endpoint = loader.TTSOpenAIEndpoint()
+		config.Model = loader.TTSOpenAIModel()
+		config.Voice = loader.TTSOpenAIVoice()
+		config.Speed = loader.TTSOpenAISpeed()
+		config.Format = loader.TTSOpenAIResponseFormat()
+		config.Instructions = loader.TTSOpenAIInstructions()
+
+	case "aliyun":
+		config.Endpoint = loader.TTSAliyunEndpoint()
+		config.Model = loader.TTSAliyunModel()
+		config.Voice = loader.TTSAliyunVoice()
+		config.LanguageType = loader.TTSAliyunLanguageType()
+		config.Stream = loader.TTSAliyunStream()
+
+	case "elevenlabs":
+		config.Endpoint = loader.TTSElevenLabsEndpoint()
+		config.Model = loader.TTSElevenLabsModelID()
+		config.VoiceID = loader.TTSElevenLabsVoiceID()
+		config.LanguageCode = loader.TTSElevenLabsLanguageCode()
+		config.Stability = loader.TTSElevenLabsStability()
+		config.SimilarityBoost = loader.TTSElevenLabsSimilarityBoost()
+		config.Style = loader.TTSElevenLabsStyle()
+		config.SpeakerBoost = loader.TTSElevenLabsUseSpeakerBoost()
+		config.OutputFormat = loader.TTSElevenLabsOutputFormat()
+		config.OptimizeLatency = loader.TTSElevenLabsOptimizeLatency()
+	}
+
+	return config
+}
+
+// newHTTPClient creates a new HTTP client with the specified timeout and security settings.
+func newHTTPClient(timeout time.Duration, blockPrivateNetworks bool) *http.Client {
+	return client.NewClientWithOptions(client.Options{
+		Timeout:              timeout,
+		BlockPrivateNetworks: blockPrivateNetworks,
+	})
 }
