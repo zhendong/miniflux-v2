@@ -52,31 +52,3 @@ func NewAudioStorage(config *StorageConfig) (AudioStorage, error) {
 	}
 }
 
-// R2Storage is a placeholder type for Cloudflare R2 storage backend.
-// Will be fully implemented in Task 3.1.
-type R2Storage struct {
-	// TODO: add fields in Task 3.1
-}
-
-// Save implements AudioStorage interface.
-// TODO: implement in Task 3.1.
-func (r *R2Storage) Save(data []byte, path string) error {
-	return nil
-}
-
-// GetURL implements AudioStorage interface.
-// TODO: implement in Task 3.1.
-func (r *R2Storage) GetURL(path string, expiresAt time.Time) (string, error) {
-	return "", nil
-}
-
-// Delete implements AudioStorage interface.
-// TODO: implement in Task 3.1.
-func (r *R2Storage) Delete(path string) error {
-	return nil
-}
-
-// Stub implementations - will be replaced in future tasks
-func newR2Storage(config *StorageConfig) (AudioStorage, error) {
-	return &R2Storage{}, nil // TODO: implement in Task 3.1
-}
