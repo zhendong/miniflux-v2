@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -24,7 +25,14 @@ func newLocalStorage(config *StorageConfig) *LocalStorage {
 
 // Save stores audio data to the local filesystem.
 func (s *LocalStorage) Save(data []byte, path string) error {
-	fullPath := filepath.Join(s.basePath, path)
+	// Validate path to prevent directory traversal attacks
+	cleanPath := filepath.Clean(filepath.Join(s.basePath, path))
+	basePath := filepath.Clean(s.basePath)
+	if !strings.HasPrefix(cleanPath, basePath+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid path: path traversal detected")
+	}
+
+	fullPath := cleanPath
 
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(fullPath)
