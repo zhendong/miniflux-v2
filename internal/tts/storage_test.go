@@ -289,3 +289,49 @@ func TestR2Storage_GetURL_PastExpiration(t *testing.T) {
 		t.Fatal("Expected error for past expiration time")
 	}
 }
+
+func TestR2Storage_GetURL_Format(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2Endpoint:        "https://test.r2.cloudflarestorage.com",
+		R2AccessKeyID:     "test-key",
+		R2SecretAccessKey: "test-secret",
+		R2Bucket:          "test-bucket",
+		R2PublicURL:       "https://cdn.example.com",
+	}
+
+	storage, err := newR2Storage(config)
+	if err != nil {
+		t.Fatalf("Failed to create R2Storage: %v", err)
+	}
+
+	// Generate presigned URL
+	expiresAt := time.Now().Add(1 * time.Hour)
+	url, err := storage.GetURL("tts_audio/test.mp3", expiresAt)
+	if err != nil {
+		t.Fatalf("GetURL failed: %v", err)
+	}
+
+	// Verify URL is not empty and looks like a presigned URL
+	if url == "" {
+		t.Error("GetURL returned empty string")
+	}
+
+	// Presigned URLs should contain signature parameters
+	if !contains(url, "X-Amz") {
+		t.Error("GetURL should return presigned URL with X-Amz parameters")
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && indexOf(s, substr) >= 0
+}
+
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
