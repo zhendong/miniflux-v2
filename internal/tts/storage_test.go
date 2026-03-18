@@ -213,3 +213,79 @@ func TestLocalStorage_Delete_NonExistentFile(t *testing.T) {
 		t.Errorf("Delete of non-existent file should not error: %v", err)
 	}
 }
+
+func TestNewR2Storage_MissingEndpoint(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2AccessKeyID:     "test-key",
+		R2SecretAccessKey: "test-secret",
+		R2Bucket:          "test-bucket",
+	}
+
+	_, err := newR2Storage(config)
+	if err == nil {
+		t.Fatal("Expected error for missing endpoint")
+	}
+
+	if err.Error() != "R2 endpoint is required" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestNewR2Storage_MissingAccessKey(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2Endpoint:        "https://test.r2.cloudflarestorage.com",
+		R2SecretAccessKey: "test-secret",
+		R2Bucket:          "test-bucket",
+	}
+
+	_, err := newR2Storage(config)
+	if err == nil {
+		t.Fatal("Expected error for missing access key")
+	}
+
+	if err.Error() != "R2 access key ID is required" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestNewR2Storage_MissingBucket(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2Endpoint:        "https://test.r2.cloudflarestorage.com",
+		R2AccessKeyID:     "test-key",
+		R2SecretAccessKey: "test-secret",
+	}
+
+	_, err := newR2Storage(config)
+	if err == nil {
+		t.Fatal("Expected error for missing bucket")
+	}
+
+	if err.Error() != "R2 bucket is required" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
+func TestR2Storage_GetURL_PastExpiration(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2Endpoint:        "https://test.r2.cloudflarestorage.com",
+		R2AccessKeyID:     "test-key",
+		R2SecretAccessKey: "test-secret",
+		R2Bucket:          "test-bucket",
+	}
+
+	storage, err := newR2Storage(config)
+	if err != nil {
+		t.Fatalf("Failed to create R2Storage: %v", err)
+	}
+
+	// Try to generate URL with past expiration
+	pastTime := time.Now().Add(-1 * time.Hour)
+	_, err = storage.GetURL("test.mp3", pastTime)
+	if err == nil {
+		t.Fatal("Expected error for past expiration time")
+	}
+}
