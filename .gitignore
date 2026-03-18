@@ -4,4 +4,6 @@
 .vscode
 *.deb
 *.rpm
+.brainstorm/
+.superpowers/
 miniflux-*
