@@ -6,7 +6,6 @@ package tts
 import (
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +31,34 @@ func (m *mockStorage) CreateTTSCache(cache *model.TTSCache) error {
 	return m.createErr
 }
 
+// mockCacheAudioStorage is a test implementation of the AudioStorage interface for cache testing.
+type mockCacheAudioStorage struct {
+	savedData map[string][]byte
+	saveErr   error
+}
+
+func (m *mockCacheAudioStorage) Save(data []byte, path string) error {
+	if m.saveErr != nil {
+		return m.saveErr
+	}
+	if m.savedData == nil {
+		m.savedData = make(map[string][]byte)
+	}
+	m.savedData[path] = data
+	return nil
+}
+
+func (m *mockCacheAudioStorage) GetURL(path string, expiresAt time.Time) (string, error) {
+	return path, nil
+}
+
+func (m *mockCacheAudioStorage) Delete(path string) error {
+	if m.savedData != nil {
+		delete(m.savedData, path)
+	}
+	return nil
+}
+
 // mockProvider is a test implementation of the Provider interface.
 type mockProvider struct {
 	result *ProviderResult
@@ -54,13 +81,6 @@ func newMockProvider(config *ProviderConfig, result *ProviderResult, err error) 
 }
 
 func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a cached file
-	cachedPath := filepath.Join(tmpDir, "tts_audio", "123_456_789.mp3")
-	os.MkdirAll(filepath.Dir(cachedPath), 0755)
-	os.WriteFile(cachedPath, []byte("cached audio"), 0644)
-
 	store := &mockStorage{
 		cache: &model.TTSCache{
 			ID:        1,
@@ -70,6 +90,8 @@ func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		},
 	}
+
+	audioStorage := &mockCacheAudioStorage{}
 
 	entry := &model.Entry{
 		ID:      123,
@@ -85,7 +107,7 @@ func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 	}
 
-	result, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
+	result, err := GetOrGenerateAudio(store, audioStorage, providerConfig, entry, 456, 24*time.Hour, "en")
 	if err != nil {
 		t.Fatalf("GetOrGenerateAudio failed: %v", err)
 	}
@@ -96,8 +118,6 @@ func TestGetOrGenerateAudio_CacheHit(t *testing.T) {
 }
 
 func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	// Mock audio data
 	audioData := []byte("generated audio data")
 
@@ -115,6 +135,8 @@ func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
 		cacheErr: os.ErrNotExist, // Cache miss
 	}
 
+	audioStorage := &mockCacheAudioStorage{}
+
 	entry := &model.Entry{
 		ID:      123,
 		Title:   "Test Title",
@@ -129,21 +151,24 @@ func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 	}
 
-	result, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
+	_, err := GetOrGenerateAudio(store, audioStorage, providerConfig, entry, 456, 24*time.Hour, "en")
 	if err != nil {
 		t.Fatalf("GetOrGenerateAudio failed: %v", err)
 	}
 
-	// Verify file was created
-	fullPath := filepath.Join(tmpDir, result.FilePath)
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		t.Error("Expected audio file to be created")
+	// Verify audio was saved using storage backend
+	if len(audioStorage.savedData) == 0 {
+		t.Error("Expected audio to be saved")
 	}
 
-	// Verify file content
-	content, _ := os.ReadFile(fullPath)
-	if string(content) != string(audioData) {
-		t.Errorf("Expected %s, got %s", audioData, content)
+	// Verify saved content
+	var savedContent []byte
+	for _, data := range audioStorage.savedData {
+		savedContent = data
+		break
+	}
+	if string(savedContent) != string(audioData) {
+		t.Errorf("Expected %s, got %s", audioData, savedContent)
 	}
 
 	// Verify cache was stored
@@ -153,11 +178,11 @@ func TestGetOrGenerateAudio_CacheMiss(t *testing.T) {
 }
 
 func TestGetOrGenerateAudio_ContentTooLarge(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	store := &mockStorage{
 		cacheErr: os.ErrNotExist,
 	}
+
+	audioStorage := &mockCacheAudioStorage{}
 
 	// Create entry with content > 50KB
 	largeContent := strings.Repeat("a", 51000)
@@ -175,7 +200,7 @@ func TestGetOrGenerateAudio_ContentTooLarge(t *testing.T) {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 	}
 
-	_, err := GetOrGenerateAudio(store, providerConfig, entry, 456, 24*time.Hour, tmpDir, "en")
+	_, err := GetOrGenerateAudio(store, audioStorage, providerConfig, entry, 456, 24*time.Hour, "en")
 	if err == nil {
 		t.Error("Expected error for content too large")
 	}
