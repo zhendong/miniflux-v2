@@ -15,7 +15,6 @@ import (
 	"miniflux.app/v2/internal/config"
 	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
-	"miniflux.app/v2/internal/http/response/json"
 	"miniflux.app/v2/internal/model"
 	"miniflux.app/v2/internal/tts"
 )
@@ -24,7 +23,7 @@ import (
 func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 	// Check if TTS is enabled
 	if !config.Opts.TTSEnabled() {
-		json.Forbidden(w, r)
+		response.JSONForbidden(w, r)
 		return
 	}
 
@@ -38,12 +37,12 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := builder.GetEntry()
 	if err != nil {
-		json.ServerError(w, r, err)
+		response.JSONServerError(w, r, err)
 		return
 	}
 
 	if entry == nil {
-		json.NotFound(w, r)
+		response.JSONNotFound(w, r)
 		return
 	}
 
@@ -54,7 +53,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 			WithStatus(http.StatusTooManyRequests).
 			WithHeader("Content-Type", "application/json").
 			WithHeader("X-RateLimit-Remaining", "0").
-			WithBody([]byte(`{"error_message":"rate limit exceeded"}`)).
+			WithBodyAsBytes([]byte(`{"error_message":"rate limit exceeded"}`)).
 			Write()
 		return
 	}
@@ -77,7 +76,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 		defaultLanguage,
 	)
 	if err != nil {
-		json.ServerError(w, r, err)
+		response.JSONServerError(w, r, err)
 		return
 	}
 
@@ -85,8 +84,8 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 	filename := filepath.Base(result.FilePath)
 
 	// Return audio file URL (will be served via separate endpoint)
-	json.OK(w, r, map[string]any{
-		"audio_url":  "/tts/audio/" + filename,
+	response.JSON(w, r, map[string]any{
+		"audio_url":  "/v1/tts/audio/" + filename,
 		"expires_at": result.ExpiresAt.Format(time.RFC3339),
 	})
 }
@@ -95,7 +94,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 	// Check if TTS is enabled
 	if !config.Opts.TTSEnabled() {
-		json.Forbidden(w, r)
+		response.JSONForbidden(w, r)
 		return
 	}
 
@@ -105,32 +104,32 @@ func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 	// Parse entry_id and user_id from filename format: {entry_id}_{user_id}_{timestamp}.mp3
 	// Validate filename to prevent path traversal
 	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
-		json.BadRequest(w, r, errors.New("invalid filename"))
+		response.JSONBadRequest(w, r, errors.New("invalid filename"))
 		return
 	}
 
 	// Parse entry and user IDs from filename
 	parts := strings.Split(strings.TrimSuffix(filename, ".mp3"), "_")
 	if len(parts) != 3 {
-		json.BadRequest(w, r, errors.New("invalid filename format"))
+		response.JSONBadRequest(w, r, errors.New("invalid filename format"))
 		return
 	}
 
 	entryID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		json.BadRequest(w, r, errors.New("invalid entry ID"))
+		response.JSONBadRequest(w, r, errors.New("invalid entry ID"))
 		return
 	}
 
 	fileUserID, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		json.BadRequest(w, r, errors.New("invalid user ID"))
+		response.JSONBadRequest(w, r, errors.New("invalid user ID"))
 		return
 	}
 
 	// Verify requesting user matches file owner
 	if userID != fileUserID {
-		json.Forbidden(w, r)
+		response.JSONForbidden(w, r)
 		return
 	}
 
@@ -141,7 +140,7 @@ func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 
 	entry, err := builder.GetEntry()
 	if err != nil || entry == nil {
-		json.Forbidden(w, r)
+		response.JSONForbidden(w, r)
 		return
 	}
 
@@ -153,14 +152,14 @@ func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 	// Check file exists
 	_, err = os.Stat(fullPath)
 	if err != nil {
-		json.NotFound(w, r)
+		response.JSONNotFound(w, r)
 		return
 	}
 
 	// Open file
 	file, err := os.Open(fullPath)
 	if err != nil {
-		json.ServerError(w, r, err)
+		response.JSONServerError(w, r, err)
 		return
 	}
 	defer file.Close()
@@ -169,7 +168,7 @@ func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 	response.New(w, r).WithCaching(filename, 24*time.Hour, func(b *response.Builder) {
 		b.WithHeader("Content-Type", "audio/mpeg")
 		b.WithHeader("Content-Disposition", `inline; filename="`+filename+`"`)
-		b.WithBody(file)
+		b.WithBodyAsReader(file)
 		b.WithoutCompression()
 		b.Write()
 	})
