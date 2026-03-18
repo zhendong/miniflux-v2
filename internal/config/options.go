@@ -616,6 +616,11 @@ func NewConfigOptions() *configOptions {
 				valueType:         stringType,
 				validator:         validateTTSProvider,
 			},
+			"TTS_STORAGE_BACKEND": {
+				parsedStringValue: "local",
+				rawValue:          "local",
+				valueType:         stringType,
+			},
 			"TTS_API_KEY": {
 				parsedStringValue: "",
 				rawValue:          "",
@@ -761,6 +766,46 @@ func NewConfigOptions() *configOptions {
 				parsedIntValue: 0,
 				rawValue:       "0",
 				valueType:      intType,
+			},
+			// R2 storage configuration
+			"TTS_R2_ENDPOINT": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_R2_ACCESS_KEY_ID": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+				secret:            true,
+			},
+			"TTS_R2_ACCESS_KEY_ID_FILE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         secretFileType,
+				targetKey:         "TTS_R2_ACCESS_KEY_ID",
+			},
+			"TTS_R2_SECRET_ACCESS_KEY": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+				secret:            true,
+			},
+			"TTS_R2_SECRET_ACCESS_KEY_FILE": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         secretFileType,
+				targetKey:         "TTS_R2_SECRET_ACCESS_KEY",
+			},
+			"TTS_R2_BUCKET": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_R2_PUBLIC_URL": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
 			},
 		},
 	}
@@ -1314,6 +1359,31 @@ func (c *configOptions) TTSElevenLabsOutputFormat() string {
 
 func (c *configOptions) TTSElevenLabsOptimizeLatency() int {
 	return c.options["TTS_ELEVENLABS_OPTIMIZE_LATENCY"].parsedIntValue
+}
+
+// Storage backend accessor methods
+func (c *configOptions) TTSStorageBackend() string {
+	return c.options["TTS_STORAGE_BACKEND"].parsedStringValue
+}
+
+func (c *configOptions) TTSR2Endpoint() string {
+	return c.options["TTS_R2_ENDPOINT"].parsedStringValue
+}
+
+func (c *configOptions) TTSR2AccessKeyID() string {
+	return c.options["TTS_R2_ACCESS_KEY_ID"].parsedStringValue
+}
+
+func (c *configOptions) TTSR2SecretAccessKey() string {
+	return c.options["TTS_R2_SECRET_ACCESS_KEY"].parsedStringValue
+}
+
+func (c *configOptions) TTSR2Bucket() string {
+	return c.options["TTS_R2_BUCKET"].parsedStringValue
+}
+
+func (c *configOptions) TTSR2PublicURL() string {
+	return c.options["TTS_R2_PUBLIC_URL"].parsedStringValue
 }
 
 func (c *configOptions) ConfigMap(redactSecret bool) []*optionPair {
