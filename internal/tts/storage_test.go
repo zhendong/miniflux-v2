@@ -4,6 +4,8 @@
 package tts
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -123,5 +125,91 @@ func TestNewAudioStorage_R2(t *testing.T) {
 	_, ok := storage.(*R2Storage)
 	if !ok {
 		t.Error("Expected R2Storage instance")
+	}
+}
+
+func TestLocalStorage_SaveGetURLDelete(t *testing.T) {
+	// Create temp directory
+	tempDir := t.TempDir()
+
+	config := &StorageConfig{
+		Backend:  "local",
+		BasePath: tempDir,
+	}
+
+	storage, err := NewAudioStorage(config)
+	if err != nil {
+		t.Fatalf("Failed to create storage: %v", err)
+	}
+
+	// Test Save
+	testData := []byte("test audio data")
+	testPath := "tts_audio/test_123_456.mp3"
+
+	err = storage.Save(testData, testPath)
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify file was created
+	fullPath := filepath.Join(tempDir, testPath)
+	savedData, err := os.ReadFile(fullPath)
+	if err != nil {
+		t.Fatalf("Failed to read saved file: %v", err)
+	}
+
+	if string(savedData) != string(testData) {
+		t.Errorf("Saved data mismatch: got %q, want %q", savedData, testData)
+	}
+
+	// Test GetURL
+	expiresAt := time.Now().Add(1 * time.Hour)
+	url, err := storage.GetURL(testPath, expiresAt)
+	if err != nil {
+		t.Fatalf("GetURL failed: %v", err)
+	}
+
+	if url != testPath {
+		t.Errorf("GetURL returned %q, want %q", url, testPath)
+	}
+
+	// Test Delete
+	err = storage.Delete(testPath)
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	// Verify file was deleted
+	if _, err := os.Stat(fullPath); !os.IsNotExist(err) {
+		t.Error("File was not deleted")
+	}
+}
+
+func TestLocalStorage_GetURL_FileNotFound(t *testing.T) {
+	tempDir := t.TempDir()
+
+	storage := newLocalStorage(&StorageConfig{
+		Backend:  "local",
+		BasePath: tempDir,
+	})
+
+	_, err := storage.GetURL("nonexistent/file.mp3", time.Now())
+	if err == nil {
+		t.Fatal("Expected error for non-existent file")
+	}
+}
+
+func TestLocalStorage_Delete_NonExistentFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	storage := newLocalStorage(&StorageConfig{
+		Backend:  "local",
+		BasePath: tempDir,
+	})
+
+	// Deleting non-existent file should not error
+	err := storage.Delete("nonexistent/file.mp3")
+	if err != nil {
+		t.Errorf("Delete of non-existent file should not error: %v", err)
 	}
 }
