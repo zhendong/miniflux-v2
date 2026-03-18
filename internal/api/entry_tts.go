@@ -61,18 +61,25 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 	// Create TTS provider configuration
 	providerConfig := tts.NewProviderConfigFromLoader(config.Opts)
 
+	// Create storage backend
+	storageConfig := tts.NewStorageConfigFromLoader(config.Opts)
+	storage, err := tts.NewAudioStorage(storageConfig)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
 	// Get or generate audio
 	cacheDuration := config.Opts.TTSCacheDuration()
-	storagePath := config.Opts.TTSStoragePath()
 	defaultLanguage := config.Opts.TTSDefaultLanguage()
 
 	result, err := tts.GetOrGenerateAudio(
 		h.store,
+		storage,
 		providerConfig,
 		entry,
 		userID,
 		cacheDuration,
-		storagePath,
 		defaultLanguage,
 	)
 	if err != nil {
@@ -144,9 +151,40 @@ func (h *handler) serveTTSAudioFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build full file path
-	storagePath := config.Opts.TTSStoragePath()
+	// Create storage backend
+	storageConfig := tts.NewStorageConfigFromLoader(config.Opts)
+	storage, err := tts.NewAudioStorage(storageConfig)
+	if err != nil {
+		response.JSONServerError(w, r, err)
+		return
+	}
+
+	// Build relative path
 	relPath := filepath.Join("tts_audio", filename)
+
+	// For R2 storage, redirect to presigned URL
+	if config.Opts.TTSStorageBackend() == "r2" {
+		// Get cache entry to determine expiration
+		cache, err := h.store.GetTTSCache(entryID, userID)
+		if err != nil {
+			response.JSONNotFound(w, r)
+			return
+		}
+
+		// Generate presigned URL
+		url, err := storage.GetURL(relPath, cache.ExpiresAt)
+		if err != nil {
+			response.JSONServerError(w, r, err)
+			return
+		}
+
+		// Redirect to presigned URL
+		http.Redirect(w, r, url, http.StatusFound)
+		return
+	}
+
+	// For local storage, serve file directly
+	storagePath := config.Opts.TTSStoragePath()
 	fullPath := filepath.Join(storagePath, relPath)
 
 	// Check file exists
