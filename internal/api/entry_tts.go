@@ -83,7 +83,7 @@ func (h *handler) getTTSAudioHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return audio file URL (will be served via separate endpoint)
 	response.JSON(w, r, map[string]any{
-		"audio_url":  "/tts/audio/" + filename,
+		"audio_url":  "/v1/tts/audio/" + filename,
 		"expires_at": result.ExpiresAt.Format(time.RFC3339),
 	})
 }
