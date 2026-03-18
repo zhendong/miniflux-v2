@@ -5,14 +5,13 @@ package cli // import "miniflux.app/v2/internal/cli"
 
 import (
 	"log/slog"
-	"os"
-	"path/filepath"
 	"time"
 
 	"miniflux.app/v2/internal/config"
 	"miniflux.app/v2/internal/metric"
 	"miniflux.app/v2/internal/model"
 	"miniflux.app/v2/internal/storage"
+	"miniflux.app/v2/internal/tts"
 )
 
 func runCleanupTasks(store *storage.Storage) {
@@ -29,14 +28,19 @@ func runCleanupTasks(store *storage.Storage) {
 		if err != nil {
 			slog.Error("Unable to cleanup expired TTS cache", slog.Any("error", err))
 		} else if len(filePaths) > 0 {
-			// Delete physical files
-			storagePath := config.Opts.TTSStoragePath()
+			// Delete files using storage backend
+			storageConfig := tts.NewStorageConfigFromLoader(config.Opts)
+			storage, err := tts.NewAudioStorage(storageConfig)
+			if err != nil {
+				slog.Error("Failed to initialize storage for TTS cleanup", slog.Any("error", err))
+				return
+			}
+
 			deletedCount := 0
 			for _, relPath := range filePaths {
-				fullPath := filepath.Join(storagePath, relPath)
-				if err := os.Remove(fullPath); err != nil {
+				if err := storage.Delete(relPath); err != nil {
 					slog.Warn("Unable to delete TTS audio file",
-						slog.String("file_path", fullPath),
+						slog.String("file_path", relPath),
 						slog.Any("error", err),
 					)
 				} else {
