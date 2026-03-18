@@ -250,6 +250,24 @@ func TestNewR2Storage_MissingAccessKey(t *testing.T) {
 	}
 }
 
+func TestNewR2Storage_MissingSecretAccessKey(t *testing.T) {
+	config := &StorageConfig{
+		Backend:           "r2",
+		R2Endpoint:        "https://test.r2.cloudflarestorage.com",
+		R2AccessKeyID:     "test-key",
+		R2Bucket:          "test-bucket",
+	}
+
+	_, err := newR2Storage(config)
+	if err == nil {
+		t.Fatal("Expected error for missing secret access key")
+	}
+
+	if err.Error() != "R2 secret access key is required" {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
 func TestNewR2Storage_MissingBucket(t *testing.T) {
 	config := &StorageConfig{
 		Backend:           "r2",
