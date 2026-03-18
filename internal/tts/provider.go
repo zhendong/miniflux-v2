@@ -108,6 +108,13 @@ type ConfigLoader interface {
 	TTSElevenLabsOutputFormat() string
 	TTSElevenLabsOptimizeLatency() int
 	IntegrationAllowPrivateNetworks() bool
+	TTSStorageBackend() string
+	TTSStoragePath() string
+	TTSR2Endpoint() string
+	TTSR2AccessKeyID() string
+	TTSR2SecretAccessKey() string
+	TTSR2Bucket() string
+	TTSR2PublicURL() string
 }
 
 // NewProviderConfigFromLoader creates a ProviderConfig from a ConfigLoader.
