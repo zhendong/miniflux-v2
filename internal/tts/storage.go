@@ -52,30 +52,6 @@ func NewAudioStorage(config *StorageConfig) (AudioStorage, error) {
 	}
 }
 
-// LocalStorage is a placeholder type for local file storage backend.
-// Will be fully implemented in Task 2.1.
-type LocalStorage struct {
-	// TODO: add fields in Task 2.1
-}
-
-// Save implements AudioStorage interface.
-// TODO: implement in Task 2.1.
-func (l *LocalStorage) Save(data []byte, path string) error {
-	return nil
-}
-
-// GetURL implements AudioStorage interface.
-// TODO: implement in Task 2.1.
-func (l *LocalStorage) GetURL(path string, expiresAt time.Time) (string, error) {
-	return "", nil
-}
-
-// Delete implements AudioStorage interface.
-// TODO: implement in Task 2.1.
-func (l *LocalStorage) Delete(path string) error {
-	return nil
-}
-
 // R2Storage is a placeholder type for Cloudflare R2 storage backend.
 // Will be fully implemented in Task 3.1.
 type R2Storage struct {
@@ -101,10 +77,6 @@ func (r *R2Storage) Delete(path string) error {
 }
 
 // Stub implementations - will be replaced in future tasks
-func newLocalStorage(config *StorageConfig) AudioStorage {
-	return &LocalStorage{} // TODO: implement in Task 2.1
-}
-
 func newR2Storage(config *StorageConfig) (AudioStorage, error) {
 	return &R2Storage{}, nil // TODO: implement in Task 3.1
 }
