@@ -125,7 +125,7 @@ func NewProviderConfigFromLoader(loader ConfigLoader) *ProviderConfig {
 		ProviderType: providerType,
 		APIKey:       loader.TTSAPIKey(),
 		HTTPClient: newHTTPClient(
-			30*time.Second,
+			180*time.Second,
 			!loader.IntegrationAllowPrivateNetworks(),
 		),
 	}

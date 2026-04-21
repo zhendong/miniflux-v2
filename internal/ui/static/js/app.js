@@ -1333,8 +1333,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error('Audio player element not found');
                 }
 
-                // Call API to get/generate audio
-                const response = await fetch(`/v1/entries/${entryId}/tts`, {
+                // Call UI endpoint to get/generate audio (uses web session auth)
+                const response = await fetch(`/entry/tts/${entryId}`, {
                     method: 'GET',
                     credentials: 'same-origin'
                 });

@@ -105,6 +105,8 @@ func Serve(store *storage.Storage, pool *worker.Pool) http.Handler {
 	mux.HandleFunc("POST /entry/enclosure/{enclosureID}/save-progression", handler.saveEnclosureProgression)
 	mux.HandleFunc("POST /entry/download/{entryID}", handler.fetchContent)
 	mux.HandleFunc("POST /entry/star/{entryID}", handler.toggleStarred)
+	mux.HandleFunc("GET /entry/tts/{entryID}", handler.getTTSAudio)
+	mux.HandleFunc("GET /entry/tts/audio/{filename}", handler.serveTTSAudio)
 
 	// Media proxy.
 	mux.HandleFunc("GET /proxy/{encodedDigest}/{encodedURL}", handler.mediaProxy)

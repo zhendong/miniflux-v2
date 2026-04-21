@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	maxSSEStreamSize = 50 << 20   // 50MB total audio
+	maxSSEStreamSize    = 50 << 20 // 50MB total audio
+	aliyunMaxChunkChars = 15000    // Aliyun limit is 16000 chars, leave margin
 )
 
 type aliyunProvider struct {
@@ -36,6 +37,68 @@ func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error
 		return nil, fmt.Errorf("text too large for TTS (%d > %d characters)", len(text), maxContentLength)
 	}
 
+	// Split into chunks if text exceeds Aliyun's per-request limit
+	if len([]rune(text)) > aliyunMaxChunkChars {
+		return p.generateChunked(text, language)
+	}
+
+	return p.generateSingle(text, language)
+}
+
+// generateChunked splits text into chunks and concatenates audio results.
+func (p *aliyunProvider) generateChunked(text, language string) (*ProviderResult, error) {
+	chunks := splitTextIntoChunks(text, aliyunMaxChunkChars)
+	var allAudio []byte
+
+	for _, chunk := range chunks {
+		result, err := p.generateSingle(chunk, language)
+		if err != nil {
+			return nil, err
+		}
+		allAudio = append(allAudio, result.AudioData...)
+	}
+
+	return &ProviderResult{AudioData: allAudio}, nil
+}
+
+// splitTextIntoChunks splits text on sentence boundaries to fit within maxChars (in runes).
+func splitTextIntoChunks(text string, maxChars int) []string {
+	runes := []rune(text)
+	if len(runes) <= maxChars {
+		return []string{text}
+	}
+
+	var chunks []string
+	for len(runes) > 0 {
+		end := maxChars
+		if end > len(runes) {
+			end = len(runes)
+		}
+
+		// Try to split on sentence boundary
+		if end < len(runes) {
+			chunk := string(runes[:end])
+			// Look for last sentence-ending punctuation
+			bestSplit := -1
+			for _, sep := range []string{"。", ".", "！", "!", "？", "?", "；", ";", "\n"} {
+				if idx := strings.LastIndex(chunk, sep); idx > len(chunk)/2 {
+					if idx+len(sep) > bestSplit {
+						bestSplit = idx + len(sep)
+					}
+				}
+			}
+			if bestSplit > 0 {
+				end = len([]rune(chunk[:bestSplit]))
+			}
+		}
+
+		chunks = append(chunks, string(runes[:end]))
+		runes = runes[end:]
+	}
+	return chunks
+}
+
+func (p *aliyunProvider) generateSingle(text, language string) (*ProviderResult, error) {
 	// Map language code to full name
 	languageType := p.config.LanguageType
 	if languageType == "" {
@@ -63,8 +126,8 @@ func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Create HTTP request
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Create HTTP request — allow 3 minutes for long text chunks
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", p.config.Endpoint, bytes.NewReader(bodyBytes))
@@ -90,7 +153,8 @@ func (p *aliyunProvider) Generate(text, language string) (*ProviderResult, error
 
 	// Handle HTTP errors
 	if resp.StatusCode != http.StatusOK {
-		return nil, p.handleHTTPError(resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Aliyun request failed: HTTP %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	// Handle streaming vs non-streaming response
@@ -163,6 +227,7 @@ func (p *aliyunProvider) mapLanguage(isoCode string) string {
 // parseSSEStream reads SSE events and accumulates base64-decoded audio chunks
 func (p *aliyunProvider) parseSSEStream(reader *bufio.Reader) ([]byte, error) {
 	var audioData []byte
+	var currentEvent string
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -175,14 +240,30 @@ func (p *aliyunProvider) parseSSEStream(reader *bufio.Reader) ([]byte, error) {
 
 		line = strings.TrimSpace(line)
 
-		// Skip empty lines and non-data lines
-		if line == "" || !strings.HasPrefix(line, "data:") {
+		// Skip empty lines and comment lines (starting with ':')
+		if line == "" || strings.HasPrefix(line, ":") {
 			continue
 		}
 
-		// Extract JSON data after "data: "
+		// Track event type
+		if strings.HasPrefix(line, "event:") {
+			currentEvent = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			continue
+		}
+
+		// Process data lines
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+
+		// Extract JSON data after "data:"
 		jsonData := strings.TrimPrefix(line, "data:")
 		jsonData = strings.TrimSpace(jsonData)
+
+		// Check for error events
+		if currentEvent == "error" {
+			return nil, fmt.Errorf("Aliyun SSE error: %s", jsonData)
+		}
 
 		// Parse JSON response
 		var sseEvent struct {
@@ -194,7 +275,7 @@ func (p *aliyunProvider) parseSSEStream(reader *bufio.Reader) ([]byte, error) {
 		}
 
 		if err := json.Unmarshal([]byte(jsonData), &sseEvent); err != nil {
-			return nil, fmt.Errorf("failed to parse SSE event JSON: %w", err)
+			return nil, fmt.Errorf("failed to parse SSE event JSON: %w (data: %s)", err, jsonData)
 		}
 
 		// Decode base64 audio chunk

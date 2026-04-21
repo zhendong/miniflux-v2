@@ -702,8 +702,8 @@ func NewConfigOptions() *configOptions {
 				valueType:         stringType,
 			},
 			"TTS_ALIYUN_VOICE": {
-				parsedStringValue: "",
-				rawValue:          "",
+				parsedStringValue: "Chelsie",
+				rawValue:          "Chelsie",
 				valueType:         stringType,
 			},
 			"TTS_ALIYUN_LANGUAGE_TYPE": {
