@@ -69,10 +69,11 @@ func validateTTSProvider(value string) error {
 		"openai":     true,
 		"aliyun":     true,
 		"elevenlabs": true,
+		"fishaudio":  true,
 	}
 
 	if !validProviders[value] {
-		return fmt.Errorf("invalid TTS provider %q (must be: openai, aliyun, or elevenlabs)", value)
+		return fmt.Errorf("invalid TTS provider %q (must be: openai, aliyun, elevenlabs, or fishaudio)", value)
 	}
 
 	return nil

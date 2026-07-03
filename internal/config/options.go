@@ -611,8 +611,8 @@ func NewConfigOptions() *configOptions {
 				valueType:       boolType,
 			},
 			"TTS_PROVIDER": {
-				parsedStringValue: "",
-				rawValue:          "",
+				parsedStringValue: "fishaudio",
+				rawValue:          "fishaudio",
 				valueType:         stringType,
 				validator:         validateTTSProvider,
 			},
@@ -766,6 +766,42 @@ func NewConfigOptions() *configOptions {
 				parsedIntValue: 0,
 				rawValue:       "0",
 				valueType:      intType,
+			},
+			// Fish Audio-specific configuration
+			"TTS_FISHAUDIO_ENDPOINT": {
+				parsedStringValue: "https://api.fish.audio/v1/tts",
+				rawValue:          "https://api.fish.audio/v1/tts",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_MODEL": {
+				parsedStringValue: "s2.1-pro-free",
+				rawValue:          "s2.1-pro-free",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_REFERENCE_ID": {
+				parsedStringValue: "",
+				rawValue:          "",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_FORMAT": {
+				parsedStringValue: "mp3",
+				rawValue:          "mp3",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_TEMPERATURE": {
+				parsedStringValue: "0.7",
+				rawValue:          "0.7",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_TOP_P": {
+				parsedStringValue: "0.7",
+				rawValue:          "0.7",
+				valueType:         stringType,
+			},
+			"TTS_FISHAUDIO_SPEED": {
+				parsedStringValue: "1.0",
+				rawValue:          "1.0",
+				valueType:         stringType,
 			},
 			// R2 storage configuration
 			"TTS_R2_ENDPOINT": {
@@ -1359,6 +1395,47 @@ func (c *configOptions) TTSElevenLabsOutputFormat() string {
 
 func (c *configOptions) TTSElevenLabsOptimizeLatency() int {
 	return c.options["TTS_ELEVENLABS_OPTIMIZE_LATENCY"].parsedIntValue
+}
+
+// Fish Audio accessor methods
+func (c *configOptions) TTSFishAudioEndpoint() string {
+	return c.options["TTS_FISHAUDIO_ENDPOINT"].parsedStringValue
+}
+
+func (c *configOptions) TTSFishAudioModel() string {
+	return c.options["TTS_FISHAUDIO_MODEL"].parsedStringValue
+}
+
+func (c *configOptions) TTSFishAudioReferenceID() string {
+	return c.options["TTS_FISHAUDIO_REFERENCE_ID"].parsedStringValue
+}
+
+func (c *configOptions) TTSFishAudioFormat() string {
+	return c.options["TTS_FISHAUDIO_FORMAT"].parsedStringValue
+}
+
+func (c *configOptions) TTSFishAudioTemperature() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_FISHAUDIO_TEMPERATURE"].parsedStringValue, 64)
+	if err != nil {
+		return 0.7 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSFishAudioTopP() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_FISHAUDIO_TOP_P"].parsedStringValue, 64)
+	if err != nil {
+		return 0.7 // Default value on parse error
+	}
+	return value
+}
+
+func (c *configOptions) TTSFishAudioSpeed() float64 {
+	value, err := strconv.ParseFloat(c.options["TTS_FISHAUDIO_SPEED"].parsedStringValue, 64)
+	if err != nil {
+		return 1.0 // Default value on parse error
+	}
+	return value
 }
 
 // Storage backend accessor methods

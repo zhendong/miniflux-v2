@@ -370,3 +370,30 @@ func TestValidateRange(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTTSProvider(t *testing.T) {
+	tests := []struct {
+		name        string
+		rawValue    string
+		expectError bool
+	}{
+		{name: "empty value is optional", rawValue: "", expectError: false},
+		{name: "openai is valid", rawValue: "openai", expectError: false},
+		{name: "aliyun is valid", rawValue: "aliyun", expectError: false},
+		{name: "elevenlabs is valid", rawValue: "elevenlabs", expectError: false},
+		{name: "fishaudio is valid", rawValue: "fishaudio", expectError: false},
+		{name: "unknown provider is invalid", rawValue: "unknown", expectError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTTSProvider(tt.rawValue)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+		})
+	}
+}

@@ -35,8 +35,8 @@ type ProviderResult struct {
 // ProviderConfig contains configuration for creating a provider.
 type ProviderConfig struct {
 	// Common config
-	APIKey      string
-	HTTPClient  *http.Client
+	APIKey     string
+	HTTPClient *http.Client
 
 	// Provider-specific config
 	ProviderType string
@@ -54,14 +54,19 @@ type ProviderConfig struct {
 	Stream       bool
 
 	// ElevenLabs-specific
-	VoiceID          string
-	LanguageCode     string
-	Stability        float64
-	SimilarityBoost  float64
-	Style            float64
-	SpeakerBoost     bool
-	OutputFormat     string
-	OptimizeLatency  int
+	VoiceID         string
+	LanguageCode    string
+	Stability       float64
+	SimilarityBoost float64
+	Style           float64
+	SpeakerBoost    bool
+	OutputFormat    string
+	OptimizeLatency int
+
+	// Fish Audio-specific
+	ReferenceID string
+	Temperature float64
+	TopP        float64
 }
 
 // NewProvider creates a new TTS provider based on the provider type.
@@ -76,6 +81,8 @@ func NewProvider(config *ProviderConfig) (Provider, error) {
 		return newAliyunProvider(config), nil
 	case "elevenlabs":
 		return newElevenLabsProvider(config), nil
+	case "fishaudio":
+		return newFishAudioProvider(config), nil
 	default:
 		return nil, fmt.Errorf("unsupported TTS provider: %s", config.ProviderType)
 	}
@@ -107,6 +114,13 @@ type ConfigLoader interface {
 	TTSElevenLabsUseSpeakerBoost() bool
 	TTSElevenLabsOutputFormat() string
 	TTSElevenLabsOptimizeLatency() int
+	TTSFishAudioEndpoint() string
+	TTSFishAudioModel() string
+	TTSFishAudioReferenceID() string
+	TTSFishAudioFormat() string
+	TTSFishAudioTemperature() float64
+	TTSFishAudioTopP() float64
+	TTSFishAudioSpeed() float64
 	IntegrationAllowPrivateNetworks() bool
 	TTSStorageBackend() string
 	TTSStoragePath() string
@@ -157,6 +171,15 @@ func NewProviderConfigFromLoader(loader ConfigLoader) *ProviderConfig {
 		config.SpeakerBoost = loader.TTSElevenLabsUseSpeakerBoost()
 		config.OutputFormat = loader.TTSElevenLabsOutputFormat()
 		config.OptimizeLatency = loader.TTSElevenLabsOptimizeLatency()
+
+	case "fishaudio":
+		config.Endpoint = loader.TTSFishAudioEndpoint()
+		config.Model = loader.TTSFishAudioModel()
+		config.ReferenceID = loader.TTSFishAudioReferenceID()
+		config.Format = loader.TTSFishAudioFormat()
+		config.Temperature = loader.TTSFishAudioTemperature()
+		config.TopP = loader.TTSFishAudioTopP()
+		config.Speed = loader.TTSFishAudioSpeed()
 	}
 
 	return config

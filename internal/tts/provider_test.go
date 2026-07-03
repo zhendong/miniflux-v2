@@ -98,3 +98,23 @@ func TestNewProvider_ElevenLabs(t *testing.T) {
 		t.Fatal("Expected provider to be created")
 	}
 }
+
+func TestNewProvider_FishAudio(t *testing.T) {
+	config := &ProviderConfig{
+		ProviderType: "fishaudio",
+		APIKey:       "test-key",
+	}
+
+	provider, err := NewProvider(config)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if provider == nil {
+		t.Fatal("Expected provider to be created")
+	}
+
+	if _, ok := provider.(*fishAudioProvider); !ok {
+		t.Fatalf("Expected *fishAudioProvider, got %T", provider)
+	}
+}

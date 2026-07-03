@@ -1650,6 +1650,60 @@ func TestTrustedReverseProxyNetworksOptionParsing(t *testing.T) {
 	}
 }
 
+func TestTTSProviderOptionParsing(t *testing.T) {
+	configParser := NewConfigParser()
+
+	// Fish Audio is the default provider so TTS_ENABLED=true works with zero config.
+	if configParser.options.TTSProvider() != "fishaudio" {
+		t.Fatalf("Expected TTS_PROVIDER to default to 'fishaudio', got %q", configParser.options.TTSProvider())
+	}
+
+	if err := configParser.parseLines([]string{"TTS_PROVIDER=openai"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if configParser.options.TTSProvider() != "openai" {
+		t.Fatalf("Expected TTS_PROVIDER to be 'openai', got %q", configParser.options.TTSProvider())
+	}
+
+	if err := configParser.parseLines([]string{"TTS_PROVIDER=invalid"}); err == nil {
+		t.Fatal("Expected error for invalid TTS_PROVIDER value, got nil")
+	}
+}
+
+func TestTTSFishAudioOptionParsing(t *testing.T) {
+	configParser := NewConfigParser()
+
+	if configParser.options.TTSFishAudioEndpoint() != "https://api.fish.audio/v1/tts" {
+		t.Fatalf("Expected default TTS_FISHAUDIO_ENDPOINT, got %q", configParser.options.TTSFishAudioEndpoint())
+	}
+	if configParser.options.TTSFishAudioModel() != "s2.1-pro-free" {
+		t.Fatalf("Expected default TTS_FISHAUDIO_MODEL, got %q", configParser.options.TTSFishAudioModel())
+	}
+	if configParser.options.TTSFishAudioReferenceID() != "" {
+		t.Fatalf("Expected TTS_FISHAUDIO_REFERENCE_ID to be empty by default")
+	}
+	if configParser.options.TTSFishAudioFormat() != "mp3" {
+		t.Fatalf("Expected default TTS_FISHAUDIO_FORMAT, got %q", configParser.options.TTSFishAudioFormat())
+	}
+	if configParser.options.TTSFishAudioTemperature() != 0.7 {
+		t.Fatalf("Expected default TTS_FISHAUDIO_TEMPERATURE 0.7, got %v", configParser.options.TTSFishAudioTemperature())
+	}
+	if configParser.options.TTSFishAudioTopP() != 0.7 {
+		t.Fatalf("Expected default TTS_FISHAUDIO_TOP_P 0.7, got %v", configParser.options.TTSFishAudioTopP())
+	}
+	if configParser.options.TTSFishAudioSpeed() != 1.0 {
+		t.Fatalf("Expected default TTS_FISHAUDIO_SPEED 1.0, got %v", configParser.options.TTSFishAudioSpeed())
+	}
+
+	if err := configParser.parseLines([]string{"TTS_FISHAUDIO_REFERENCE_ID=voice-123"}); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if configParser.options.TTSFishAudioReferenceID() != "voice-123" {
+		t.Fatalf("Expected TTS_FISHAUDIO_REFERENCE_ID to be 'voice-123', got %q", configParser.options.TTSFishAudioReferenceID())
+	}
+}
+
 func TestYouTubeEmbedDomainOptionParsing(t *testing.T) {
 	configParser := NewConfigParser()
 
