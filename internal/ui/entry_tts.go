@@ -28,7 +28,7 @@ func (h *handler) getTTSAudio(w http.ResponseWriter, r *http.Request) {
 	entryID := request.RouteInt64Param(r, "entryID")
 
 	builder := h.store.NewEntryQueryBuilder(userID)
-	builder.WithEntryID(entryID)
+	builder.WithEntryIDs(entryID)
 
 	entry, err := builder.GetEntry()
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *handler) serveTTSAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	builder := h.store.NewEntryQueryBuilder(userID)
-	builder.WithEntryID(entryID)
+	builder.WithEntryIDs(entryID)
 
 	entry, err := builder.GetEntry()
 	if err != nil || entry == nil {

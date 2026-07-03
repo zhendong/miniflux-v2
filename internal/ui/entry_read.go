@@ -10,7 +10,6 @@ import (
 	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
 	"miniflux.app/v2/internal/model"
-	"miniflux.app/v2/internal/storage"
 	"miniflux.app/v2/internal/ui/view"
 )
 
@@ -22,10 +21,10 @@ func (h *handler) showReadEntryPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entryID := request.RouteInt64Param(r, "entryID")
-	builder := h.store.NewEntryQueryBuilder(user.ID)
-	builder.WithEntryID(entryID)
 
-	entry, err := builder.GetEntry()
+	entry, err := h.store.NewEntryQueryBuilder(user.ID).
+		WithEntryIDs(entryID).
+		GetEntry()
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
@@ -41,9 +40,9 @@ func (h *handler) showReadEntryPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryPaginationBuilder := storage.NewEntryPaginationBuilder(h.store, user.ID, entry.ID, "changed_at", "desc")
-	entryPaginationBuilder.WithStatus(model.EntryStatusRead)
-	prevEntry, nextEntry, err := entryPaginationBuilder.Entries()
+	prevEntry, nextEntry, err := h.store.NewEntryPaginationBuilder(user.ID, entry.ID, "changed_at", "desc").
+		WithStatus(model.EntryStatusRead).
+		Entries()
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
@@ -67,9 +66,10 @@ func (h *handler) showReadEntryPage(w http.ResponseWriter, r *http.Request) {
 	view.Set("prevEntryRoute", prevEntryRoute)
 	view.Set("menu", "history")
 	view.Set("user", user)
-	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
-	view.Set("hasSaveEntry", h.store.HasSaveEntry(user.ID))
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
+	view.Set("hasSaveEntry", navMetadata.HasSaveEntry)
 	view.Set("hasTTS", config.Opts.TTSEnabled())
 
 	response.HTML(w, r, view.Render("entry"))

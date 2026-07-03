@@ -10,7 +10,6 @@ import (
 	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
 	"miniflux.app/v2/internal/model"
-	"miniflux.app/v2/internal/storage"
 	"miniflux.app/v2/internal/ui/view"
 )
 
@@ -22,10 +21,10 @@ func (h *handler) showUnreadEntryPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entryID := request.RouteInt64Param(r, "entryID")
-	builder := h.store.NewEntryQueryBuilder(user.ID)
-	builder.WithEntryID(entryID)
 
-	entry, err := builder.GetEntry()
+	entry, err := h.store.NewEntryQueryBuilder(user.ID).
+		WithEntryIDs(entryID).
+		GetEntry()
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
@@ -45,10 +44,10 @@ func (h *handler) showUnreadEntryPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	entryPaginationBuilder := storage.NewEntryPaginationBuilder(h.store, user.ID, entry.ID, user.EntryOrder, user.EntryDirection)
-	entryPaginationBuilder.WithStatus(model.EntryStatusUnread)
-	entryPaginationBuilder.WithGloballyVisible()
-	prevEntry, nextEntry, err := entryPaginationBuilder.Entries()
+	prevEntry, nextEntry, err := h.store.NewEntryPaginationBuilder(user.ID, entry.ID, user.EntryOrder, user.EntryDirection).
+		WithStatus(model.EntryStatusUnread).
+		WithGloballyVisible().
+		Entries()
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
@@ -90,12 +89,12 @@ func (h *handler) showUnreadEntryPage(w http.ResponseWriter, r *http.Request) {
 	view.Set("prevEntryRoute", prevEntryRoute)
 	view.Set("menu", "unread")
 	view.Set("user", user)
-	view.Set("hasSaveEntry", h.store.HasSaveEntry(user.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
+	// Fetching the counters here avoids being off by one.
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
+	view.Set("hasSaveEntry", navMetadata.HasSaveEntry)
 	view.Set("hasTTS", config.Opts.TTSEnabled())
-
-	// Fetching the counter here avoid to be off by one.
-	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
 
 	response.HTML(w, r, view.Render("entry"))
 }

@@ -47,29 +47,6 @@ func (s *Storage) CountAllEntries() (map[string]int64, error) {
 	return results, nil
 }
 
-// CountUnreadEntries returns the number of unread entries.
-func (s *Storage) CountUnreadEntries(userID int64) int {
-	builder := s.NewEntryQueryBuilder(userID)
-	builder.WithStatus(model.EntryStatusUnread)
-	builder.WithGloballyVisible()
-
-	n, err := builder.CountEntries()
-	if err != nil {
-		slog.Error("Unable to count unread entries",
-			slog.Int64("user_id", userID),
-			slog.Any("error", err),
-		)
-		return 0
-	}
-
-	return n
-}
-
-// NewEntryQueryBuilder returns a new EntryQueryBuilder
-func (s *Storage) NewEntryQueryBuilder(userID int64) *EntryQueryBuilder {
-	return NewEntryQueryBuilder(s, userID)
-}
-
 // UpdateEntryTitleAndContent updates entry title and content.
 func (s *Storage) UpdateEntryTitleAndContent(entry *model.Entry) error {
 	truncatedTitle, truncatedContent := truncateTitleAndContentForTSVectorField(entry.Title, entry.Content)
@@ -121,7 +98,8 @@ func (s *Storage) createEntry(tx *sql.Tx, entry *model.Entry) error {
 				reading_time,
 				changed_at,
 				document_vectors,
-				tags
+				tags,
+				language
 			)
 		SELECT
 			$1,
@@ -136,7 +114,8 @@ func (s *Storage) createEntry(tx *sql.Tx, entry *model.Entry) error {
 			$10,
 			now(),
 			setweight(to_tsvector($11), 'A') || setweight(to_tsvector($12), 'B'),
-			$13
+			$13,
+			$14
 		WHERE NOT EXISTS (
 			SELECT 1 FROM entry_tombstones WHERE feed_id=$9 AND hash=$2
 		)
@@ -158,6 +137,7 @@ func (s *Storage) createEntry(tx *sql.Tx, entry *model.Entry) error {
 		truncatedTitle,
 		truncatedContent,
 		pq.Array(entry.Tags),
+		entry.Language,
 	).Scan(
 		&entry.ID,
 		&entry.Status,
@@ -199,7 +179,8 @@ func (s *Storage) updateEntry(tx *sql.Tx, entry *model.Entry) error {
 			author=$5,
 			reading_time=$6,
 			document_vectors = setweight(to_tsvector($7), 'A') || setweight(to_tsvector($8), 'B'),
-			tags=$12
+			tags=$12,
+			language=$13
 		WHERE
 			user_id=$9 AND feed_id=$10 AND hash=$11
 		RETURNING
@@ -219,6 +200,7 @@ func (s *Storage) updateEntry(tx *sql.Tx, entry *model.Entry) error {
 		entry.FeedID,
 		entry.Hash,
 		pq.Array(entry.Tags),
+		entry.Language,
 	).Scan(&entry.ID)
 	if err != nil {
 		return fmt.Errorf(`store: unable to update entry %q: %v`, entry.URL, err)
@@ -255,7 +237,7 @@ func (s *Storage) getEntryIDByHash(tx *sql.Tx, feedID int64, entryHash string) (
 		entryHash,
 	).Scan(&entryID)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
 	if err != nil {
@@ -474,18 +456,8 @@ func (s *Storage) SetEntriesStatusAndCountVisible(userID int64, entryIDs []int64
 // SetEntriesStarredState updates the starred state for the given list of entries.
 func (s *Storage) SetEntriesStarredState(userID int64, entryIDs []int64, starred bool) error {
 	query := `UPDATE entries SET starred=$1, changed_at=now() WHERE user_id=$2 AND id=ANY($3)`
-	result, err := s.db.Exec(query, starred, userID, pq.Array(entryIDs))
-	if err != nil {
+	if _, err := s.db.Exec(query, starred, userID, pq.Array(entryIDs)); err != nil {
 		return fmt.Errorf(`store: unable to update the starred state %v: %v`, entryIDs, err)
-	}
-
-	count, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf(`store: unable to update these entries %v: %v`, entryIDs, err)
-	}
-
-	if count == 0 {
-		return errors.New(`store: nothing has been updated`)
 	}
 
 	return nil

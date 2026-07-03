@@ -10,7 +10,6 @@ import (
 	"miniflux.app/v2/internal/http/request"
 	"miniflux.app/v2/internal/http/response"
 	"miniflux.app/v2/internal/model"
-	"miniflux.app/v2/internal/storage"
 	"miniflux.app/v2/internal/ui/view"
 )
 
@@ -24,11 +23,11 @@ func (h *handler) showSearchEntryPage(w http.ResponseWriter, r *http.Request) {
 	entryID := request.RouteInt64Param(r, "entryID")
 	searchQuery := request.QueryStringParam(r, "q", "")
 	unreadOnly := request.QueryBoolParam(r, "unread", false)
-	builder := h.store.NewEntryQueryBuilder(user.ID)
-	builder.WithSearchQuery(searchQuery)
-	builder.WithEntryID(entryID)
 
-	entry, err := builder.GetEntry()
+	entry, err := h.store.NewEntryQueryBuilder(user.ID).
+		WithSearchQuery(searchQuery).
+		WithEntryIDs(entryID).
+		GetEntry()
 	if err != nil {
 		response.HTMLServerError(w, r, err)
 		return
@@ -54,13 +53,13 @@ func (h *handler) showSearchEntryPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryPaginationBuilder := storage.NewEntryPaginationBuilder(h.store, user.ID, entry.ID, user.EntryOrder, user.EntryDirection)
-	entryPaginationBuilder.WithSearchQuery(searchQuery)
+	entryPaginationBuilder := h.store.NewEntryPaginationBuilder(user.ID, entry.ID, user.EntryOrder, user.EntryDirection).
+		WithSearchQuery(searchQuery)
 	if unreadOnly {
 		if entry.Status == model.EntryStatusRead {
-			entryPaginationBuilder.WithStatusOrEntryID(model.EntryStatusUnread, entry.ID)
+			entryPaginationBuilder = entryPaginationBuilder.WithStatusOrEntryID(model.EntryStatusUnread, entry.ID)
 		} else {
-			entryPaginationBuilder.WithStatus(model.EntryStatusUnread)
+			entryPaginationBuilder = entryPaginationBuilder.WithStatus(model.EntryStatusUnread)
 		}
 	}
 
@@ -90,9 +89,10 @@ func (h *handler) showSearchEntryPage(w http.ResponseWriter, r *http.Request) {
 	view.Set("prevEntryRoute", prevEntryRoute)
 	view.Set("menu", "search")
 	view.Set("user", user)
-	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
-	view.Set("hasSaveEntry", h.store.HasSaveEntry(user.ID))
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
+	view.Set("hasSaveEntry", navMetadata.HasSaveEntry)
 	view.Set("hasTTS", config.Opts.TTSEnabled())
 
 	response.HTML(w, r, view.Render("entry"))

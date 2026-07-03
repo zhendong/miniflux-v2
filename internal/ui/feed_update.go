@@ -48,20 +48,23 @@ func (h *handler) updateFeed(w http.ResponseWriter, r *http.Request) {
 	view.Set("feed", feed)
 	view.Set("menu", "feeds")
 	view.Set("user", loggedUser)
-	view.Set("countUnread", h.store.CountUnreadEntries(loggedUser.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(loggedUser.ID))
+	navMetadata, _ := h.store.GetNavMetadata(loggedUser.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
 	view.Set("defaultUserAgent", config.Opts.HTTPClientUserAgent())
 
 	feedModificationRequest := &model.FeedModificationRequest{
-		FeedURL:         model.OptionalString(feedForm.FeedURL),
-		SiteURL:         model.OptionalString(feedForm.SiteURL),
-		Title:           model.OptionalString(feedForm.Title),
-		Description:     model.OptionalString(feedForm.Description),
-		CategoryID:      model.OptionalNumber(feedForm.CategoryID),
-		BlocklistRules:  model.OptionalString(feedForm.BlocklistRules),
-		KeeplistRules:   model.OptionalString(feedForm.KeeplistRules),
-		UrlRewriteRules: model.OptionalString(feedForm.UrlRewriteRules),
-		ProxyURL:        model.OptionalString(feedForm.ProxyURL),
+		FeedURL:               model.OptionalString(feedForm.FeedURL),
+		SiteURL:               model.OptionalString(feedForm.SiteURL),
+		Title:                 model.OptionalString(feedForm.Title),
+		Description:           model.OptionalString(feedForm.Description),
+		CategoryID:            model.OptionalNumber(feedForm.CategoryID),
+		BlocklistRules:        model.OptionalString(feedForm.BlocklistRules),
+		KeeplistRules:         model.OptionalString(feedForm.KeeplistRules),
+		UrlRewriteRules:       model.OptionalString(feedForm.UrlRewriteRules),
+		ProxyURL:              model.OptionalString(feedForm.ProxyURL),
+		BlockFilterEntryRules: model.OptionalString(feedForm.BlockFilterEntryRules),
+		KeepFilterEntryRules:  model.OptionalString(feedForm.KeepFilterEntryRules),
 	}
 
 	if validationErr := validator.ValidateFeedModification(h.store, loggedUser.ID, feed.ID, feedModificationRequest); validationErr != nil {

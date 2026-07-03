@@ -46,8 +46,9 @@ func (h *handler) uploadOPML(w http.ResponseWriter, r *http.Request) {
 	view := view.New(h.tpl, r)
 	view.Set("menu", "feeds")
 	view.Set("user", user)
-	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
 
 	if fileHeader.Size == 0 {
 		view.Set("errorMessage", locale.NewLocalizedError("error.empty_file").Translate(user.Language))
@@ -85,12 +86,13 @@ func (h *handler) fetchOPML(w http.ResponseWriter, r *http.Request) {
 	view := view.New(h.tpl, r)
 	view.Set("menu", "feeds")
 	view.Set("user", user)
-	view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-	view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	view.Set("countUnread", navMetadata.CountUnread)
+	view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
 
-	requestBuilder := fetcher.NewRequestBuilder()
-	requestBuilder.WithTimeout(config.Opts.HTTPClientTimeout())
-	requestBuilder.WithProxyRotator(proxyrotator.ProxyRotatorInstance)
+	requestBuilder := fetcher.NewRequestBuilder().
+		WithTimeout(config.Opts.HTTPClientTimeout()).
+		WithProxyRotator(proxyrotator.ProxyRotatorInstance)
 
 	responseHandler := fetcher.NewResponseHandler(requestBuilder.ExecuteRequest(opmlFileURL))
 	defer responseHandler.Close()

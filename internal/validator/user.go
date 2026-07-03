@@ -130,7 +130,7 @@ func ValidateUserModification(store *storage.Storage, userID int64, changes *mod
 
 	if changes.BlockFilterEntryRules != nil {
 		if *changes.BlockFilterEntryRules != "" {
-			if err := isValidFilterRules(*changes.BlockFilterEntryRules, "block"); err != nil {
+			if err := IsValidFilterRules(*changes.BlockFilterEntryRules, "block"); err != nil {
 				return err
 			}
 		}
@@ -138,7 +138,7 @@ func ValidateUserModification(store *storage.Storage, userID int64, changes *mod
 
 	if changes.KeepFilterEntryRules != nil {
 		if *changes.KeepFilterEntryRules != "" {
-			if err := isValidFilterRules(*changes.KeepFilterEntryRules, "keep"); err != nil {
+			if err := IsValidFilterRules(*changes.KeepFilterEntryRules, "keep"); err != nil {
 				return err
 			}
 		}
@@ -212,7 +212,7 @@ func validateTimezone(timezoneValue string) *locale.LocalizedError {
 }
 
 func validateEntriesPerPage(entriesPerPage int) *locale.LocalizedError {
-	if entriesPerPage < 1 {
+	if entriesPerPage < 1 || entriesPerPage > model.MaxEntryLimit {
 		return locale.NewLocalizedError("error.entries_per_page_invalid")
 	}
 	return nil

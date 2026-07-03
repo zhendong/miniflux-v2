@@ -36,8 +36,9 @@ func (h *handler) submitSubscription(w http.ResponseWriter, r *http.Request) {
 	v.Set("categories", categories)
 	v.Set("menu", "feeds")
 	v.Set("user", user)
-	v.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-	v.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
+	navMetadata, _ := h.store.GetNavMetadata(user.ID)
+	v.Set("countUnread", navMetadata.CountUnread)
+	v.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
 	v.Set("defaultUserAgent", config.Opts.HTTPClientUserAgent())
 	v.Set("hasProxyConfigured", config.Opts.HasHTTPClientProxyURLConfigured())
 
@@ -56,17 +57,17 @@ func (h *handler) submitSubscription(w http.ResponseWriter, r *http.Request) {
 		rssBridgeToken = intg.RSSBridgeToken
 	}
 
-	requestBuilder := fetcher.NewRequestBuilder()
-	requestBuilder.WithTimeout(config.Opts.HTTPClientTimeout())
-	requestBuilder.WithProxyRotator(proxyrotator.ProxyRotatorInstance)
-	requestBuilder.WithCustomFeedProxyURL(subscriptionForm.ProxyURL)
-	requestBuilder.WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL())
-	requestBuilder.UseCustomApplicationProxyURL(subscriptionForm.FetchViaProxy)
-	requestBuilder.WithUserAgent(subscriptionForm.UserAgent, config.Opts.HTTPClientUserAgent())
-	requestBuilder.WithCookie(subscriptionForm.Cookie)
-	requestBuilder.WithUsernameAndPassword(subscriptionForm.Username, subscriptionForm.Password)
-	requestBuilder.IgnoreTLSErrors(subscriptionForm.AllowSelfSignedCertificates)
-	requestBuilder.DisableHTTP2(subscriptionForm.DisableHTTP2)
+	requestBuilder := fetcher.NewRequestBuilder().
+		WithTimeout(config.Opts.HTTPClientTimeout()).
+		WithProxyRotator(proxyrotator.ProxyRotatorInstance).
+		WithCustomFeedProxyURL(subscriptionForm.ProxyURL).
+		WithCustomApplicationProxyURL(config.Opts.HTTPClientProxyURL()).
+		UseCustomApplicationProxyURL(subscriptionForm.FetchViaProxy).
+		WithUserAgent(subscriptionForm.UserAgent, config.Opts.HTTPClientUserAgent()).
+		WithCookie(subscriptionForm.Cookie).
+		WithUsernameAndPassword(subscriptionForm.Username, subscriptionForm.Password).
+		IgnoreTLSErrors(subscriptionForm.AllowSelfSignedCertificates).
+		DisableHTTP2(subscriptionForm.DisableHTTP2)
 
 	subscriptionFinder := subscription.NewSubscriptionFinder(requestBuilder)
 	subscriptions, localizedError := subscriptionFinder.FindSubscriptions(
@@ -158,8 +159,9 @@ func (h *handler) submitSubscription(w http.ResponseWriter, r *http.Request) {
 		view.Set("form", subscriptionForm)
 		view.Set("menu", "feeds")
 		view.Set("user", user)
-		view.Set("countUnread", h.store.CountUnreadEntries(user.ID))
-		view.Set("countErrorFeeds", h.store.CountUserFeedsWithErrors(user.ID))
+		navMetadata, _ := h.store.GetNavMetadata(user.ID)
+		view.Set("countUnread", navMetadata.CountUnread)
+		view.Set("countErrorFeeds", navMetadata.CountErrorFeeds)
 		view.Set("hasProxyConfigured", config.Opts.HasHTTPClientProxyURLConfigured())
 
 		response.HTML(w, r, view.Render("choose_subscription"))

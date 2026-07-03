@@ -31,7 +31,7 @@ func (h *handler) getTTSAudioHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch entry with feed details
 	builder := h.store.NewEntryQueryBuilder(userID)
-	builder.WithEntryID(entryID)
+	builder.WithEntryIDs(entryID)
 
 	entry, err := builder.GetEntry()
 	if err != nil {
@@ -140,7 +140,7 @@ func (h *handler) serveTTSAudioFileHandler(w http.ResponseWriter, r *http.Reques
 
 	// Verify user still has access to entry
 	builder := h.store.NewEntryQueryBuilder(userID)
-	builder.WithEntryID(entryID)
+	builder.WithEntryIDs(entryID)
 
 	entry, err := builder.GetEntry()
 	if err != nil || entry == nil {
